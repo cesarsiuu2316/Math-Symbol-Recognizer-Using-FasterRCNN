@@ -16,11 +16,23 @@
         "num_epochs": 10
     },
     "transform_params": {
-        "target_min_size": 800,
-        "morphological_kernel_size": 3
+        "target_min_size": 320,
+        "morphological_kernel_size": 3,
+        "scaling_factor": 0.33538852753805676
     },
     "anchor_params": {
-        "sizes": [32, 64, 128, 256, 512],
-        "aspect_ratios": [0.5, 1.0, 2.0]
+        "sizes": [
+            10,
+            20,
+            40,
+            80
+        ],
+        "aspect_ratios": [
+            0.2,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+        ]
     }
 }
