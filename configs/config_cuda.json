@@ -1,0 +1,72 @@
+{
+    "paths": {
+        "crohme_dir": "TC11_CROHME23",
+        "train_img_dir": "TC11_CROHME23/IMG/train/OffHME",
+        "train_lg_dir": "TC11_CROHME23/SymLG/train/OffHME",
+        "data_dir": "data",
+        "class_mapping_path": "data/class_mapping.json",
+        "train_annotations_path": "data/train_annotations.json",
+        "whiteboard_dir": "whiteboard_data",
+        "output_dir": "output",
+        "config_path": "configs/config_cuda.json",
+        "model_checkpoint_prefix": "output/fasterrcnn_resnet50_fpn.chkpt_optim_"
+    },
+    "model_params": {
+        "architecture": "fasterrcnn_resnet50_fpn",
+        "weights": null,
+        "weights_backbone": "IMAGENET1K_V1",
+        "trainable_backbone_layers": 5,
+        "_comment_layers": "5 means unfreeze all layers for full retraining (required for domain shift)",
+        "anchor_params": {
+            "_Comment": "original first size was 9, switched to 10 to match min feature map size of 320/32=10",
+            "sizes": [
+                10,
+                19,
+                38,
+                76
+            ],
+            "aspect_ratios": [
+                0.2,
+                0.5,
+                1.0,
+                2.0,
+                5.0
+            ]
+        },
+        "roi_heads": {
+            "box_detections_per_img": 100,
+            "box_nms_thresh": 0.5,
+            "box_score_thresh": 0.05,
+            "_comment_nms": "IoU threshold: Boxes overlapping more than 0.5 will be suppressed.",
+            "_comment_score": "Score threshold: Boxes with a score lower than 0.05 will be removed."
+        }
+    },
+    "training_params": {
+        "device": "cuda",
+        "batch_size": 32,
+        "num_epochs": 500,
+        "learning_rate": 0.005,
+        "momentum": 0.9,
+        "weight_decay": 0.0005,
+        "optimizer": "SGD",
+        "lr_scheduler": {
+            "type": "StepLR",
+            "step_size": 3,
+            "gamma": 0.1
+        },
+        "num_workers": 6,
+        "print_freq": 20
+    },
+    "transform_params": {
+        "target_min_size": 320,
+        "scaling_factor": 0.3171334176545419,
+        "transform": true,
+        "augmentation_params": {
+            "_comment": "Values tuned for small ~19px median symbols",
+            "morphological_kernels": [2, 3],
+            "blur_kernels": [3, 5],
+            "noise_sigma_range": [20, 50],
+            "threshold_range": [100, 150]
+        }
+    }
+}

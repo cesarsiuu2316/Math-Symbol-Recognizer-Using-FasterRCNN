@@ -3,7 +3,7 @@ import os
 import cv2
 import numpy as np
 import glob
-from utils import load_config
+from utils import load_config, update_config
 
 def calculate_crohme_stats(annotations_path="train_annotations.json"):
     """
@@ -81,11 +81,10 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     
     print("\n--- Interactive Calibration ---")
     print("INSTRUCTIONS:")
-    print("1. Draw box -> Let go of mouse -> Draw another box.")
-    print("2. When finished with an image, press SPACE or ENTER.")
-    print("3. To Stop Calibration completely, press ESC inside the selection window (or select nothing).")
+    print("1. Draw box -> Let go of mouse -> Press Space or Enter.")
+    print("2. When finished with an image, press ESC to move to next image.")
     
-    window_name = "Calibration: Draw Boxes then press SPACE"
+    window_name = "Calibration: Draw a Box then press SPACE"
     
     for i, img_path in enumerate(image_files):
         img = cv2.imread(img_path)
@@ -125,21 +124,6 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     
     return median_area
 
-
-def update_config(config, scaling_factor, anchor_sizes):
-    """
-    Updates the config.json with new scaling factor and anchor sizes.
-    """
-        
-    config['transform_params']['scaling_factor'] = scaling_factor
-    config['anchor_params']['sizes'] = anchor_sizes
-    
-    with open(config['paths']['config_path'], 'w') as f:
-        json.dump(config, f, indent=4)
-        
-    print(f"Updated {config['paths']['config_path']} with scaling_factor={scaling_factor:.2f} and anchors={anchor_sizes}")
-
-
 def main():
     config = load_config()
     annotations_path = config['paths']['train_annotations_path']
@@ -168,6 +152,7 @@ def main():
                 print(f"Median CROHME Area: {crohme_stats['median_area']:.0f}")
                 print(f"Median Whiteboard Area: {wb_median_area:.0f}")
                 print(f"Calculated Scaling Factor: {scaling_factor:.2f}")
+
                 
                 # 4. Calculate Anchor Sizes
                 # Base anchors on the median size of whiteboard symbols, scaled up and down
@@ -179,10 +164,12 @@ def main():
                     int(base_size * 4.0)
                 ]
                 
-                update_config(config, scaling_factor, anchor_sizes)
+                update_config(config, {
+                    "transform_params": {"scaling_factor": scaling_factor},
+                    "model_params": {"anchor_params": {"sizes": anchor_sizes}}
+                })
             else:
                 print("Skipping calibration update (no whiteboard data collected).")
-
 
 if __name__ == "__main__":
     main()

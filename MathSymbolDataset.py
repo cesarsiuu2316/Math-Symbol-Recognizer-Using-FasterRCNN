@@ -13,7 +13,7 @@ import matplotlib.patches as patches
 class MathSymbolDataset(Dataset):
     """
     PyTorch Dataset for Math Symbol Detection.
-    Handles domain shift problem through adaptation of the images via resizing and morphological augmentation.
+    Handles domain shift problem through adaptation of the images via resizing and morphological + noise augmentation.
     """
     def __init__(self, config):
         """
