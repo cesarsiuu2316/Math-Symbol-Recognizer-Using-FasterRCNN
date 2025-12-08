@@ -19,7 +19,6 @@ class MathSymbolDataset(Dataset):
         """
         Args:
             config (dict): Configuration dictionary.
-            split (str): 'train' or 'val'. Currently uses same annotations file but could be split.
         """
         self.config = config
         self.img_dir = config['paths']['train_img_dir']
