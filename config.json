@@ -18,14 +18,15 @@
     "transform_params": {
         "target_min_size": 320,
         "morphological_kernel_size": 3,
-        "scaling_factor": 0.33538852753805676
+        "scaling_factor": 0.3171334176545419
     },
     "anchor_params": {
+        "_Comment": "original first size was 9, switched to 10 to match min feature map size of 320/32=10",
         "sizes": [
             10,
-            20,
-            40,
-            80
+            19,
+            38,
+            76
         ],
         "aspect_ratios": [
             0.2,
