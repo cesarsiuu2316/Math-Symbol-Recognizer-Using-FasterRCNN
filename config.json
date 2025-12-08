@@ -17,8 +17,15 @@
     },
     "transform_params": {
         "target_min_size": 320,
-        "morphological_kernel_size": 3,
-        "scaling_factor": 0.3171334176545419
+        "scaling_factor": 0.3171334176545419,
+        "transform": true,
+        "augmentation_params": {
+            "_comment": "Values tuned for small ~19px median symbols",
+            "morphological_kernels": [2, 3],
+            "blur_kernels": [3, 5],
+            "noise_sigma_range": [20, 50],
+            "threshold_range": [100, 150]
+        }
     },
     "anchor_params": {
         "_Comment": "original first size was 9, switched to 10 to match min feature map size of 320/32=10",
