@@ -12,7 +12,7 @@
         "model_checkpoint_prefix": "output/fasterrcnn_resnet50_fpn.chkpt_optim_"
     },
     "model_params": {
-        "architecture": "fasterrcnn_resnet50_fpn",
+        "_architecture": "fasterrcnn_resnet50_fpn",
         "weights": null,
         "weights_backbone": "IMAGENET1K_V1",
         "trainable_backbone_layers": 5,
