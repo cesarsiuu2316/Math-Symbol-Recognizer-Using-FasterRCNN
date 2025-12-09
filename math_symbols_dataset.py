@@ -1,4 +1,3 @@
-from networkx import config
 import torch
 from torch.utils.data import Dataset
 import cv2
@@ -103,7 +102,6 @@ class MathSymbolDataset(Dataset):
         # Load image (BGR)
         img = cv2.imread(img_path) # loads image in BGR format and HWC (height, width, channels) shape
         if img is None:
-            # Handle missing image gracefully (return next one or raise error)
             raise FileNotFoundError(f"Image not found: {img_path}")
         
         # Convert to Grayscale for augmentation, then back to RGB for model
@@ -114,29 +112,21 @@ class MathSymbolDataset(Dataset):
 
         boxes = np.array(item['boxes'], dtype=np.float32)
         labels = torch.tensor([self.class_mapping[l] for l in item['labels']], dtype=torch.int64)
-        # 2. Domain Augmentation (Morphological)
-        # Change ink thickness sometimes + blur + noise + threshold
-        if self.transform:
-            img = self.__mimic_whiteboard_ink(img_gray)
 
-        # Convert to RGB for model input
-        # Faster R-CNN expects 3 channel input in RGB format
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-
-        # 3. Dynamic Scaling
+        # 2. Dynamic Scaling
         # Resize image and boxes to match whiteboard domain size
-        h, w, _ = img.shape
+        h, w = img_gray.shape
         new_w = int(w * self.scaling_factor)
         new_h = int(h * self.scaling_factor)
         
-        img = cv2.resize(img, (new_w, new_h))
+        img_gray = cv2.resize(img_gray, (new_w, new_h))
         
         # Scale boxes: [x1, y1, x2, y2]
         if len(boxes) > 0:
             boxes[:, [0, 2]] *= (new_w / w)
             boxes[:, [1, 3]] *= (new_h / h)
 
-        # 4. Padding
+        # 3. Padding
         # Pad with white pixels if smaller than target_min_size
         # Faster R-CNN needs a minimum size to generate feature maps
         pad_total_w = max(0, self.target_min_size - new_w) # if negative, pad_w = 0, no padding needed / else pad_w = amount to pad
@@ -150,8 +140,8 @@ class MathSymbolDataset(Dataset):
             pad_right = pad_total_w - pad_left
 
             # Apply Padding
-            img = cv2.copyMakeBorder(
-                img, 
+            img_gray = cv2.copyMakeBorder(
+                img_gray, 
                 top=pad_top, bottom=pad_bottom, 
                 left=pad_left, right=pad_right, 
                 borderType=cv2.BORDER_CONSTANT, value=(255, 255, 255)
@@ -163,6 +153,14 @@ class MathSymbolDataset(Dataset):
                 boxes[:, 2] += pad_left
                 boxes[:, 1] += pad_top
                 boxes[:, 3] += pad_top
+
+        # 4. Domain Augmentation (Morphological)
+        # Change ink thickness sometimes + blur + noise + threshold
+        if self.transform:
+            img = self.__mimic_whiteboard_ink(img_gray)
+
+        # Convert to RGB for model input (faster rcnn expects 3 channels)
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
         # 5. Convert to Tensor for model input
         # Normalize to [0, 1] and permute to [C, H, W] (Channel, Height, Width)
@@ -177,7 +175,7 @@ class MathSymbolDataset(Dataset):
         # Area
         if len(boxes) > 0:
             area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-            target["area"] = area
+            target["area"] = torch.as_tensor(area, dtype=torch.float32)
         else:
             target["area"] = torch.as_tensor([], dtype=torch.float32)
             print(f"Warning: No boxes for image {img_path}")
@@ -213,7 +211,7 @@ def test_dataset(dataset, image_id=0):
 
     
     # Plot original image with boxes and augmentated image
-    fig, ax = plt.subplots(1, 2, figsize=(8, 16))
+    _, ax = plt.subplots(1, 2, figsize=(8, 16))
     ax[0].imshow(original_img)
     ax[0].set_title("Original Image with Boxes")
     for box in dataset.annotations[image_id]['boxes']:

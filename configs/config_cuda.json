@@ -34,6 +34,7 @@
             ]
         },
         "roi_heads": {
+            "_comment_box_detections_per_img": "Estimar máxima cantidad de simbolos por imagen en pizarra blanca",
             "box_detections_per_img": 100,
             "box_nms_thresh": 0.5,
             "box_score_thresh": 0.05,
@@ -48,7 +49,7 @@
         "learning_rate": 0.005,
         "momentum": 0.9,
         "weight_decay": 0.0005,
-        "optimizer": "SGD",
+        "optimizer": "AdamW",
         "lr_scheduler": {
             "type": "StepLR",
             "step_size": 3,
