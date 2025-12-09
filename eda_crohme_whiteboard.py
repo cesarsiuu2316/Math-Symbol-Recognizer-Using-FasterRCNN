@@ -125,7 +125,13 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     return median_area
 
 def main():
-    config = load_config()
+    # Load config
+    if len(os.sys.argv) < 2:
+        print("Usage:")
+        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
+        exit(1)
+    config = load_config(os.sys.argv[1])
+
     annotations_path = config['paths']['train_annotations_path']
     
     # 1. Analyze CROHME

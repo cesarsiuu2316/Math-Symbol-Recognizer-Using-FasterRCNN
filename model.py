@@ -4,6 +4,7 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 import json
 from utils import load_config
 import torch
+import os
 
 def get_model(config):
     """
@@ -60,10 +61,7 @@ def get_model(config):
     
     return model
 
-def testing():
-# Load the CPU config for testing
-    config = load_config("configs/config_cpu.json")
-    
+def testing(config):    
     print("Building model...")
     model = get_model(config)
     print("Model built successfully.")
@@ -85,7 +83,14 @@ def testing():
     print(f"Output keys: {predictions[0].keys()}")
 
 def main():
-    testing()
+    # Load config
+    if len(os.sys.argv) < 2:
+        print("Usage:")
+        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
+        exit(1)
+    config = load_config(os.sys.argv[1])
+
+    testing(config)
 
 if __name__ == "__main__":
     main()

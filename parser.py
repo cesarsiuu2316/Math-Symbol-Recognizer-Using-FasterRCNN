@@ -145,11 +145,18 @@ def process_dataset(lg_dir, mapping_path, annotations_path):
 
 
 def main(): 
-    config = load_config()
+    # Load config
+    if len(os.sys.argv) < 2:
+        print("Usage")
+        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
+        exit(1)
+    config = load_config(os.sys.argv[1])
+
     lg_dir = config['paths']['train_lg_dir']
     mapping_path = config['paths']['class_mapping_path']
     annotations_path = config['paths']['train_annotations_path']
     data_dir = config['paths']['data_dir']
+    
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     process_dataset(lg_dir, mapping_path, annotations_path)

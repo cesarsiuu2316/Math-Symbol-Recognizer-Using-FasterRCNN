@@ -1,7 +1,7 @@
 import json
 import os
 
-def load_config(config_path="configs/config_cpu.json"):
+def load_config(config_path):
     """
     Loads the configuration from a JSON file.
     

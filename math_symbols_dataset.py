@@ -233,8 +233,15 @@ def test_dataset(dataset, image_id=0):
     plt.show()
 
 def main():
-    config = load_config()
+    # Load config
+    if len(os.sys.argv) < 2:
+        print("Usage:")
+        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
+        exit(1)
+    config = load_config(os.sys.argv[1])
+
     dataset = MathSymbolDataset(config)
+
     for _ in range(0, 5):
         image_id = random.randint(0, 10000)
         test_dataset(dataset, image_id)
