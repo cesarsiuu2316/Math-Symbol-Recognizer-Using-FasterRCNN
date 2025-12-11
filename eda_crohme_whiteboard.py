@@ -70,8 +70,6 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     # 1. Gather Images
     image_files = glob.glob(os.path.join(whiteboard_dir, "*.*"))
     # Filter for common image extensions
-    valid_exts = ['.png', '.jpg', '.jpeg', '.bmp']
-    image_files = [f for f in image_files if os.path.splitext(f)[1].lower() in valid_exts]
     
     if not image_files:
         print(f"No images found in {whiteboard_dir}.")
@@ -124,6 +122,103 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     
     return median_area
 
+def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=False):
+    """
+    Calculates the median bounding box area of symbols on a whiteboard.
+    Optimized for small symbols (~20px) and noisy environments.
+    """
+    image_files = glob.glob(os.path.join(whiteboard_dir, "*.*"))
+    
+    if not image_files:
+        print("No images found.")
+        return None
+
+    # --- CONFIGURATION ---
+    VIEW_WIDTH = 1600         # View for debugging
+    MIN_AREA_PX = 5           # Min area to consider a symbol
+    MAX_SCREEN_PCT = 0.01     # If a box > 1% of screen, it's noise/diagram/frame
+    BORDER_MASK_PCT = 0.05    # Black out 5% of borders to avoid edge noise
+    # ---------------------
+
+    all_areas = []
+
+    print(f"Processing {len(image_files)} images...")
+
+    for img_path in image_files:
+        img = cv2.imread(img_path)
+        if img is None: 
+            continue
+
+        H, W = img.shape[:2]
+        img_area = H * W
+        
+        # Preprocessing (Background Normalization)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)        
+        # Gaussian Blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (7,7), 0)        
+        # Apply Otsu's Thresholding in inverted image
+        threshold = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+
+        # Find Components
+        # connectivity=8 checks diagonal pixels too (better for handwriting)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(threshold, connectivity=8)
+        
+        valid_boxes = []
+        
+        for i in range(1, num_labels):
+            x = stats[i, cv2.CC_STAT_LEFT] 
+            y = stats[i, cv2.CC_STAT_TOP]
+            w = stats[i, cv2.CC_STAT_WIDTH]
+            h = stats[i, cv2.CC_STAT_HEIGHT]
+            
+            box_area = w * h
+
+            # --- FILTERS TO GET RID OF NOISE ---
+            # 1. Too Small?
+            if box_area < MIN_AREA_PX: 
+                continue            
+            # 2. Too Big? (Diagrams/Frames > 1% of screen)
+            elif box_area > (img_area * MAX_SCREEN_PCT): 
+                continue
+            # 3. Aspect Ratio Check (Removes long skinny lines that span > 20% of the screen width/height)
+            elif w > (W * 0.2) or h > (H * 0.2):
+                continue
+            
+            valid_boxes.append(box_area)
+            
+            if debug:
+                # Draw Green Box with red centroid
+                cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                cX, cY = centroids[i]
+                cv2.circle(img, (int(cX), int(cY)), 3, (0, 0, 255), -1)
+
+        all_areas.extend(valid_boxes)
+
+        if debug:
+            # Scale up for display
+            scale = VIEW_WIDTH / W
+            new_dim = (VIEW_WIDTH, int(H * scale))
+            resized_debug = cv2.resize(img, new_dim)
+            cv2.imshow(f"CC Stats Debug - {os.path.basename(img_path)}", resized_debug)
+            if cv2.waitKey(0) == 27: # ESC to quit
+                cv2.destroyAllWindows()
+                break
+            cv2.destroyWindow(f"CC Stats Debug - {os.path.basename(img_path)}")
+
+    if debug: 
+        cv2.destroyAllWindows()
+
+    if not all_areas:
+        print("No valid symbols detected.")
+        return 0
+
+    median_val = np.median(all_areas)
+    print(f"\n--- CC Stats Calibration ---")
+    print(f"Total Components Found: {len(all_areas)}")
+    print(f"Median Box Area: {median_val:.2f}")
+    
+    return median_val
+
 def main():
     # Load config
     if len(os.sys.argv) < 2:
@@ -137,7 +232,7 @@ def main():
     # 1. Analyze CROHME
     crohme_stats = calculate_crohme_stats(annotations_path)
     
-    if crohme_stats:
+    if True:
         # 2. Analyze Whiteboard (Interactive)
         whiteboard_dir = config['paths']['whiteboard_dir']
         
@@ -147,6 +242,7 @@ def main():
             print(f"Created {whiteboard_dir}. Please put some sample whiteboard images there and run again.")
         else:
             wb_median_area = interactive_whiteboard_calibration(whiteboard_dir)
+            #wb_median_area = get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=True)
             
             if wb_median_area:
                 # 3. Calculate Scaling Factor
@@ -159,7 +255,6 @@ def main():
                 print(f"Median Whiteboard Area: {wb_median_area:.0f}")
                 print(f"Calculated Scaling Factor: {scaling_factor:.2f}")
 
-                
                 # 4. Calculate Anchor Sizes
                 # Base anchors on the median size of whiteboard symbols, scaled up and down
                 base_size = int(np.sqrt(wb_median_area))
