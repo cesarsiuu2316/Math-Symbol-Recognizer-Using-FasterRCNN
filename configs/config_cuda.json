@@ -1,14 +1,15 @@
 {
     "paths": {
+        "config_path": "configs/config_cuda.json",
         "crohme_dir": "TC11_CROHME23",
         "train_img_dir": "TC11_CROHME23/IMG/train/OffHME",
         "train_lg_dir": "TC11_CROHME23/SymLG/train/OffHME",
         "data_dir": "data",
         "class_mapping_path": "data/class_mapping.json",
         "train_annotations_path": "data/train_annotations.json",
+        "calibrated_whiteboard_bboxes_path": "data/calibrated_whiteboard_bboxes.json",
         "whiteboard_dir": "whiteboard_data",
         "output_dir": "output",
-        "config_path": "configs/config_cuda.json",
         "model_checkpoint_prefix": "output/fasterrcnn_resnet50_fpn.chkpt_optim_"
     },
     "model_params": {
@@ -17,6 +18,8 @@
         "weights_backbone": "IMAGENET1K_V1",
         "trainable_backbone_layers": 5,
         "_comment_layers": "5 means unfreeze all layers for full retraining (required for domain shift)",
+        "_get_new_anchor_params_use_comment": "1: use saved data / 2: continue where left off / 3: restart",
+        "get_new_anchor_params": 1,
         "anchor_params": {
             "_Comment": "original first size was 9, switched to 10 to match min feature map size of 320/32=10",
             "sizes": [

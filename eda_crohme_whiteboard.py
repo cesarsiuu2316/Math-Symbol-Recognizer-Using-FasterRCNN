@@ -3,12 +3,22 @@ import os
 import cv2
 import numpy as np
 import glob
-from utils import load_config, update_config
 
-def calculate_crohme_stats(annotations_path="train_annotations.json"):
+def load_state(calibrated_whiteboard_bboxes_file):
+    """Internal helper to load calibration progress."""
+    if os.path.exists(calibrated_whiteboard_bboxes_file):
+        with open(calibrated_whiteboard_bboxes_file, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_state(data, calibrated_whiteboard_bboxes_file):
+    """Internal helper to save calibration progress."""
+    with open(calibrated_whiteboard_bboxes_file, 'w') as f:
+        json.dump(data, f, indent=4)
+
+def calculate_crohme_stats(annotations_path):
     """
     Calculates median width, height, and aspect ratios from CROHME annotations.
-    
     Args:
         annotations_path (str): Path to the annotations JSON file.
         
@@ -57,7 +67,7 @@ def calculate_crohme_stats(annotations_path="train_annotations.json"):
     return stats
 
 
-def interactive_whiteboard_calibration(whiteboard_dir):
+def interactive_whiteboard_calibration(whiteboard_dir, calibrated_whiteboard_bboxes_path, reset=False):
     """
     Allows user to manually draw boxes on whiteboard images to estimate target symbol size.
 
@@ -69,60 +79,88 @@ def interactive_whiteboard_calibration(whiteboard_dir):
     """
     # 1. Gather Images
     image_files = glob.glob(os.path.join(whiteboard_dir, "*.*"))
-    # Filter for common image extensions
-    
     if not image_files:
         print(f"No images found in {whiteboard_dir}.")
         return None
-        
-    areas = []
+    
+    # 2. State Management
+    if reset and os.path.exists(calibrated_whiteboard_bboxes_path):
+        os.remove(calibrated_whiteboard_bboxes_path)
+        labeled_data = {}
+        print("Calibration state reset.")
+    else:
+        labeled_data = load_state(calibrated_whiteboard_bboxes_path)
+
+    # Filter out images already processed in the state file
+    remaining_files = [f for f in image_files if os.path.basename(f) not in labeled_data]
+
+    # If we have data and no new files, just return the calculation
+    if not remaining_files and labeled_data:
+        print("All images processed. Returning saved stats.")
+        areas = []
+        for img_data in labeled_data.values():
+            areas.extend(img_data)
+        return float(np.median(areas))
     
     print("\n--- Interactive Calibration ---")
+    print(f"Total Images: {len(image_files)}")
+    print(f"Already Labeled: {len(labeled_data)}")
+    print(f"Remaining: {len(remaining_files)}")
     print("INSTRUCTIONS:")
     print("1. Draw box -> Let go of mouse -> Press Space or Enter.")
     print("2. When finished with an image, press ESC to move to next image.")
     
     window_name = "Calibration: Draw a Box then press SPACE"
     
-    for i, img_path in enumerate(image_files):
+    for i, img_path in enumerate(remaining_files):
+        img_name = os.path.basename(img_path)
         img = cv2.imread(img_path)
-        if img is None:
+        if img is None: 
             continue
             
-        print(f"[{i+1}/{len(image_files)}] Processing: {os.path.basename(img_path)}")
+        print(f"[{i+1}/{len(remaining_files)}] Processing: {img_name}")
 
         # It returns a tuple of lists [[x,y,w,h], ...]
         rois = cv2.selectROIs(window_name, img, showCrosshair=True, fromCenter=False)
-        
         cv2.destroyWindow(window_name)
 
-        # Logic: If user hit ESC or just pressed Enter without drawing, 
-        # rois will be empty (or length 0). We treat this as "Finish".
+        # Logic: Empty rois means user hit ESC or Enter without drawing -> Stop/Exit
         if len(rois) == 0:
             print("No boxes selected. Ending calibration...")
             break
             
+        current_img_areas = []
         for roi in rois:
             x, y, w, h = roi
-            # Filter out accidental tiny clicks (e.g., 0x0 or 1x1 pixels)
+            # Filter out accidental tiny clicks
             if w > 2 and h > 2: 
                 area = w * h
-                areas.append(area)
+                current_img_areas.append(float(area))
                 print(f"  -> Added box: {w}x{h} (Area: {area})")
+
+        # Save state immediately
+        if current_img_areas:
+            labeled_data[img_name] = current_img_areas
+            save_state(labeled_data, calibrated_whiteboard_bboxes_path)
 
     cv2.destroyAllWindows()
     
-    if not areas:
+    # Calculate Final Median using ALL data (historical + new)
+    all_areas = []
+    for img_data in labeled_data.values():
+        all_areas.extend(img_data)
+
+    if not all_areas:
         print("No valid areas collected.")
         return None
         
-    median_area = float(np.median(areas))
-    print(f"\nCollected {len(areas)} samples.")
+    median_area = float(np.median(all_areas))
+    print(f"\nCollected {len(all_areas)} samples.")
     print(f"Median Area: {median_area:.2f}")
     
     return median_area
 
-def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=False):
+def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=True):
     """
     Calculates the median bounding box area of symbols on a whiteboard.
     Optimized for small symbols (~20px) and noisy environments.
@@ -137,7 +175,6 @@ def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=False):
     VIEW_WIDTH = 1600         # View for debugging
     MIN_AREA_PX = 5           # Min area to consider a symbol
     MAX_SCREEN_PCT = 0.01     # If a box > 1% of screen, it's noise/diagram/frame
-    BORDER_MASK_PCT = 0.05    # Black out 5% of borders to avoid edge noise
     # ---------------------
 
     all_areas = []
@@ -175,14 +212,11 @@ def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=False):
 
             # --- FILTERS TO GET RID OF NOISE ---
             # 1. Too Small?
-            if box_area < MIN_AREA_PX: 
-                continue            
+            if box_area < MIN_AREA_PX: continue            
             # 2. Too Big? (Diagrams/Frames > 1% of screen)
-            elif box_area > (img_area * MAX_SCREEN_PCT): 
-                continue
+            elif box_area > (img_area * MAX_SCREEN_PCT): continue
             # 3. Aspect Ratio Check (Removes long skinny lines that span > 20% of the screen width/height)
-            elif w > (W * 0.2) or h > (H * 0.2):
-                continue
+            elif w > (W * 0.2) or h > (H * 0.2): continue
             
             valid_boxes.append(box_area)
             
@@ -218,59 +252,3 @@ def get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=False):
     print(f"Median Box Area: {median_val:.2f}")
     
     return median_val
-
-def main():
-    # Load config
-    if len(os.sys.argv) < 2:
-        print("Usage:")
-        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
-        exit(1)
-    config = load_config(os.sys.argv[1])
-
-    annotations_path = config['paths']['train_annotations_path']
-    
-    # 1. Analyze CROHME
-    crohme_stats = calculate_crohme_stats(annotations_path)
-    
-    if True:
-        # 2. Analyze Whiteboard (Interactive)
-        whiteboard_dir = config['paths']['whiteboard_dir']
-        
-        # Create directory if it doesn't exist
-        if not os.path.exists(whiteboard_dir):
-            os.makedirs(whiteboard_dir)
-            print(f"Created {whiteboard_dir}. Please put some sample whiteboard images there and run again.")
-        else:
-            wb_median_area = interactive_whiteboard_calibration(whiteboard_dir)
-            #wb_median_area = get_whiteboard_median_via_cc_labeling(whiteboard_dir, debug=True)
-            
-            if wb_median_area:
-                # 3. Calculate Scaling Factor
-                # Scaling factor k such that: k^2 * crohme_area = wb_area
-                # k = sqrt(wb_area / crohme_area)
-                scaling_factor = np.sqrt(wb_median_area / crohme_stats['median_area'])
-                
-                print(f"\nResults:")
-                print(f"Median CROHME Area: {crohme_stats['median_area']:.0f}")
-                print(f"Median Whiteboard Area: {wb_median_area:.0f}")
-                print(f"Calculated Scaling Factor: {scaling_factor:.2f}")
-
-                # 4. Calculate Anchor Sizes
-                # Base anchors on the median size of whiteboard symbols, scaled up and down
-                base_size = int(np.sqrt(wb_median_area))
-                anchor_sizes = [
-                    int(base_size * 0.5),
-                    int(base_size * 1.0),
-                    int(base_size * 2.0),
-                    int(base_size * 4.0)
-                ]
-                
-                update_config(config, {
-                    "transform_params": {"scaling_factor": scaling_factor},
-                    "model_params": {"anchor_params": {"sizes": anchor_sizes}}
-                })
-            else:
-                print("Skipping calibration update (no whiteboard data collected).")
-
-if __name__ == "__main__":
-    main()
