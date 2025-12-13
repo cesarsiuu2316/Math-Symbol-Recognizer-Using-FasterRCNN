@@ -2,6 +2,7 @@ import os
 import glob
 import json
 from utils import load_config
+from PIL import Image
 
 def parse_lg_file(file_path) -> list:
     """
@@ -58,7 +59,6 @@ def parse_lg_file(file_path) -> list:
                     ]
 
                     # Validation: Only store valid boxes
-                    #!!! NOTE: Not the best way to do it, but works for now
                     if bbox[2] > bbox[0] and bbox[3] > bbox[1]:
                         bbox_map[obj_id] = bbox
                     else: 
@@ -77,7 +77,7 @@ def parse_lg_file(file_path) -> list:
             
     return results
 
-def process_dataset(lg_dir, mapping_path, annotations_path):
+def process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir):
     """
     Scans all .lg files, generates class mapping, and saves all annotations to a single JSON.
     
@@ -93,7 +93,6 @@ def process_dataset(lg_dir, mapping_path, annotations_path):
     unique_labels = set()
     all_annotations = []
     num_files = len(lg_files)
-
     print(f"Scanning {num_files} files in {lg_dir}...")
     
     for i, file_path in enumerate(lg_files):
@@ -107,6 +106,15 @@ def process_dataset(lg_dir, mapping_path, annotations_path):
         base_name = os.path.splitext(os.path.basename(file_path))[0]
         image_filename = base_name + ".png"
         
+        # Aspect Ratio Check
+        image_path = os.path.join(train_image_dir, image_filename)
+        if os.path.exists(image_path):
+            with Image.open(image_path) as img:
+                width, height = img.size
+        else:
+            print(f"Warning: Image {image_filename} not found! Skipping.")
+            continue
+        
         boxes = []
         labels = []
         
@@ -119,6 +127,8 @@ def process_dataset(lg_dir, mapping_path, annotations_path):
             all_annotations.append({
                 "file_id": base_name,
                 "image_name": image_filename,
+                "width": width,
+                "height": height,
                 "boxes": boxes,
                 "labels": labels
             })
@@ -156,10 +166,11 @@ def main():
     mapping_path = config['paths']['class_mapping_path']
     annotations_path = config['paths']['train_annotations_path']
     data_dir = config['paths']['data_dir']
+    train_image_dir = config['paths']['train_image_dir']
     
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    process_dataset(lg_dir, mapping_path, annotations_path)
+    process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir)
 
 
 if __name__ == "__main__":

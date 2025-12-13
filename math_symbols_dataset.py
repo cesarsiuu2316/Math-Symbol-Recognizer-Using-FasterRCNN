@@ -20,7 +20,7 @@ class MathSymbolDataset(Dataset):
             config (dict): Configuration dictionary.
         """
         self.config = config
-        self.img_dir = config['paths']['train_img_dir']
+        self.img_dir = config['paths']['train_image_dir']
 
         # Load annotations
         annotations_path = config['paths']['train_annotations_path']
@@ -208,7 +208,6 @@ def test_dataset(dataset, image_id=0):
     original_img = cv2.imread(original_img_path)
     original_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
     img_np = img.permute(1, 2, 0).numpy()
-
     
     # Plot original image with boxes and augmentated image
     _, ax = plt.subplots(1, 2, figsize=(8, 16))

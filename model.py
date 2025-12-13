@@ -44,7 +44,7 @@ def get_model(config):
         weights=config['model_params']['weights'], # Usually None if we want to start fresh or specific weights
         weights_backbone=config['model_params']['weights_backbone'], # ImageNet weights for backbone
         trainable_backbone_layers=config['model_params']['trainable_backbone_layers'], # Unfreeze all layers (5) for domain adaptation
-        rpn_anchor_generator=anchor_generator
+        rpn_anchor_generator=anchor_generator,
     )
     
     # 4. Replace the Head (Classifier)
