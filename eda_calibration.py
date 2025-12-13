@@ -93,7 +93,7 @@ def main():
             "transform_params": {"scaling_factor": scaling_factor},
             "model_params": {"anchor_params": {"sizes": anchor_sizes}}
         })
-        print(f"Configuration file '{config}' updated successfully.")
+        print(f"Configuration file '{config["paths"]["config_path"]}' updated successfully.")
     else:
         print("Skipping calibration update (no whiteboard data collected).")
 

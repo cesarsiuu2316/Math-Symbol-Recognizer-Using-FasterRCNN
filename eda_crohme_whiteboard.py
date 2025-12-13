@@ -121,7 +121,7 @@ def interactive_whiteboard_calibration(whiteboard_dir, calibrated_whiteboard_bbo
         print(f"[{i+1}/{len(remaining_files)}] Processing: {img_name}")
 
         # It returns a tuple of lists [[x,y,w,h], ...]
-        rois = cv2.selectROIs(window_name, img, showCrosshair=True, fromCenter=False)
+        rois = cv2.selectROIs(window_name, img, showCrosshair=True, fromCenter=False, printNotice=True)
         cv2.destroyWindow(window_name)
 
         # Logic: Empty rois means user hit ESC or Enter without drawing -> Stop/Exit
