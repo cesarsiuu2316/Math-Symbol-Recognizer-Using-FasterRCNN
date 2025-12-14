@@ -20,7 +20,7 @@
         "trainable_backbone_layers": 5,
         "_comment_layers": "5 means unfreeze all layers for full retraining (required for domain shift)",
         "_get_new_anchor_params_use_comment": "1: use saved data / 2: continue where left off / 3: restart",
-        "get_new_anchor_params": 2,
+        "get_new_anchor_params": 1,
         "anchor_params": {
             "_Comment": "original first size was 9, switched to 10 to match min feature map size of 320/32=10",
             "sizes": [
@@ -60,6 +60,8 @@
             "gamma": 0.1
         },
         "num_workers": 2,
+        "random_generator_seed": 42,
+        "train_split_ratio": 0.9,
         "print_freq": 15
     },
     "transform_params": {
@@ -68,10 +70,22 @@
         "transform": true,
         "augmentation_params": {
             "_comment": "Values tuned for small ~19px median symbols",
-            "morphological_kernels": [2,3],
-            "blur_kernels": [3,5],
-            "noise_sigma_range": [20,50],
-            "threshold_range": [100,150]
+            "morphological_kernels": [
+                2,
+                3
+            ],
+            "blur_kernels": [
+                3,
+                5
+            ],
+            "noise_sigma_range": [
+                20,
+                50
+            ],
+            "threshold_range": [
+                100,
+                150
+            ]
         }
     }
 }

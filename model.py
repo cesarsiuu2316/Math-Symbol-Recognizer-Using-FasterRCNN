@@ -2,9 +2,6 @@ import torchvision
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 import json
-from utils import load_config
-import torch
-import os
 
 def get_model(config):
     """
@@ -26,13 +23,14 @@ def get_model(config):
     # 2. Configure Custom Anchor sizes and aspect ratios found in EDA
     anchor_sizes = config['model_params']['anchor_params']['sizes']
     aspect_ratios = config['model_params']['anchor_params']['aspect_ratios']
+    trainable_backbone_layers = config['model_params']['trainable_backbone_layers']
     
     # AnchorGenerator expects a tuple of tuples for sizes and aspect ratios
     # One tuple for each feature map level. We use the same for all levels here for simplicity.
     # In a standard FPN with 5 levels, we repeat the configuration 5 times.
     anchor_generator = AnchorGenerator(
-        sizes=tuple([tuple(anchor_sizes) for _ in range(5)]),
-        aspect_ratios=tuple([tuple(aspect_ratios) for _ in range(5)])
+        sizes=tuple([tuple(anchor_sizes) for _ in range(trainable_backbone_layers)]),
+        aspect_ratios=tuple([tuple(aspect_ratios) for _ in range(trainable_backbone_layers)])
     )
     
     # 3. Load Pre-trained Model
@@ -60,37 +58,3 @@ def get_model(config):
     model.roi_heads.detections_per_img = config['model_params']['roi_heads']['box_detections_per_img']
     
     return model
-
-def testing(config):    
-    print("Building model...")
-    model = get_model(config)
-    print("Model built successfully.")
-    
-    # Print model summary or check a specific layer
-    print("\nModel Summary:")
-    print("----------------")
-    print(model)
-    print(f"Number of classes: {model.roi_heads.box_predictor.cls_score.out_features}")
-    print(f"Anchor Generator sizes: {model.rpn.anchor_generator.sizes}")
-    print(f"Anchor Generator aspect ratios: {model.rpn.anchor_generator.aspect_ratios}")
-    
-    # Test with a dummy input
-    print("\nTesting forward pass with dummy input...")
-    model.eval()
-    x = [torch.rand(3, 320, 320)]
-    predictions = model(x)
-    print("Forward pass successful.")
-    print(f"Output keys: {predictions[0].keys()}")
-
-def main():
-    # Load config
-    if len(os.sys.argv) < 2:
-        print("Usage:")
-        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
-        exit(1)
-    config = load_config(os.sys.argv[1])
-
-    testing(config)
-
-if __name__ == "__main__":
-    main()

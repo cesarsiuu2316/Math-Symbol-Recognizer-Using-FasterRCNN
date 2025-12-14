@@ -48,7 +48,7 @@ def create_aspect_ratio_groups(dataset):
     Returns:
         list: A list of group IDs corresponding to each image in the dataset.
     """
-    print("Grouping images by Aspect Ratio (3 Groups)...")
+    print("Grouping images by Aspect Ratio (4 Groups)...")
     
     # 1. Handle Subsets (Train/Val Splits)
     # If dataset is a Subset, we need to access the parent dataset via .dataset

@@ -50,6 +50,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
     avg_loss = running_loss / len(data_loader)
     return avg_loss
 
+@torch.no_grad()
 def validate_loss_one_epoch(model, data_loader, device, debug=False):
     """
     Calculates validation loss in train mode to get loss dict. 
@@ -67,7 +68,7 @@ def validate_loss_one_epoch(model, data_loader, device, debug=False):
     running_loss = 0.0
     
     print("Validating...")
-    for i, (images, targets) in enumerate(data_loader):
+    for images, targets in data_loader:
         # Send images and targets to device
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -103,8 +104,10 @@ def main():
     # 2. Create Custom Dataset Instance
     dataset = MathSymbolDataset(config)
 
-    random_generator = torch.Generator().manual_seed(42) # For reproducibility
-    train_size = int(0.9 * len(dataset))
+    random_generator_seed = config['training_params']['random_generator_seed']
+    random_generator = torch.Generator().manual_seed(random_generator_seed) # For reproducibility
+    train_split_ratio = config['training_params']['train_split_ratio']
+    train_size = int(train_split_ratio * len(dataset))
     val_size = len(dataset) - train_size
 
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=random_generator)
@@ -114,11 +117,10 @@ def main():
     # 3. Setup Grouped Batch Sampler
     # Create random sampler (indexes)
     train_sampler = RandomSampler(train_dataset)
-    val_sampler = RandomSampler(val_dataset)
-    # Calculate groups (0 or 1) using Annotations json data
+    val_sampler = SequentialSampler(val_dataset)
+    # Calculate groups based on aspect ratios
     train_group_ids = create_aspect_ratio_groups(train_dataset)
     val_group_ids = create_aspect_ratio_groups(val_dataset)
-
     # Get batch size from config
     batch_size = config['training_params']['batch_size']
     # Create Custom GroupedBatchSampler Instance
@@ -127,7 +129,6 @@ def main():
 
     # 4. DataLoader
     num_workers = config['training_params']['num_workers']
-    data_loader = None
     pin_memory = True if device.type == 'cuda' else False
 
     train_data_loader = DataLoader(
@@ -194,10 +195,12 @@ def main():
     start_time = time.time()
     
     for epoch in range(start_epoch, num_epochs + 1):
+        avg_val_loss = 0.0
         avg_train_loss = train_one_epoch(model, optimizer, train_data_loader, device, epoch, max_norm, print_freq)
-        avg_val_loss = validate_loss_one_epoch(model, val_data_loader, device, debug=False)
+        with torch.no_grad():
+            avg_val_loss = validate_loss_one_epoch(model, val_data_loader, device, debug=False)
         lr_scheduler.step()
-        print(f"Epoch {epoch} Done. \Avg Training Loss: {avg_train_loss:.4f} \Avg Validation Loss: {avg_val_loss:.4f}")
+        print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f}")
         # Save Checkpoint
         chkpt_path_config = config['paths']['model_checkpoint_prefix']
         chkpt_path = f"{chkpt_path_config}epoch_{epoch}.dat"

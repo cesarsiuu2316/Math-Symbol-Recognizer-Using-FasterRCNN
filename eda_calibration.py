@@ -38,12 +38,7 @@ def main():
     
     if state_exists:
         print(f"Found existing calibration data in '{calibrated_whiteboard_bboxes_path}'.")
-        print("1. Use saved data (Skip calibration)")
-        print("2. Continue calibration (Add new images)")
-        print("3. Restart calibration (Delete saved data)")
-        
         get_new_anchor_params = config['model_params']['get_new_anchor_params']
-        
         if get_new_anchor_params == 1:
             # Load stats without opening GUI
             data = eda.load_state(calibrated_whiteboard_bboxes_path)

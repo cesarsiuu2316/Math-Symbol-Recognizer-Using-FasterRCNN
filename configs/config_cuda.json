@@ -38,7 +38,7 @@
             ]
         },
         "roi_heads": {
-            "_comment_box_detections_per_img": "Estimar máxima cantidad de simbolos por imagen en pizarra blanca",
+            "_comment_box_detections_per_img": "Estimar maxima cantidad de simbolos por imagen en pizarra blanca",
             "box_detections_per_img": 100,
             "box_nms_thresh": 0.5,
             "box_score_thresh": 0.05,
@@ -60,6 +60,8 @@
             "gamma": 0.1
         },
         "num_workers": 6,
+        "random_generator_seed": 42,
+        "train_split_ratio": 0.9,
         "print_freq": 20
     },
     "transform_params": {
@@ -68,10 +70,22 @@
         "transform": true,
         "augmentation_params": {
             "_comment": "Values tuned for small ~19px median symbols",
-            "morphological_kernels": [2, 3],
-            "blur_kernels": [3, 5],
-            "noise_sigma_range": [20, 50],
-            "threshold_range": [100, 150]
+            "morphological_kernels": [
+                2,
+                3
+            ],
+            "blur_kernels": [
+                3,
+                5
+            ],
+            "noise_sigma_range": [
+                20,
+                50
+            ],
+            "threshold_range": [
+                100,
+                150
+            ]
         }
     }
 }
