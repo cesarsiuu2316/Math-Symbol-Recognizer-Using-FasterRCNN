@@ -1,8 +1,7 @@
 import torch
 import bisect
-from collections import defaultdict
+from collections import defaultdict, Counter
 from torch.utils.data.sampler import BatchSampler
-from collections import Counter
 
 class GroupedBatchSampler(BatchSampler):
     """
@@ -18,11 +17,13 @@ class GroupedBatchSampler(BatchSampler):
         # defaultdict(list) automatically creates a new list for any new group_id it sees
         buffer_per_group = defaultdict(list)
         
+        # Iterate over the base sampler / stream of indices
         for idx in self.sampler:
+            # For each index, find its group and add to the corresponding buffer
             group_id = self.group_ids[idx].item()
             buffer_per_group[group_id].append(idx)
             
-            # If this specific bucket is full, yield it
+            # If this specific bucket is full, yield it / flush it
             if len(buffer_per_group[group_id]) == self.batch_size:
                 yield buffer_per_group[group_id]
                 buffer_per_group[group_id] = []
@@ -33,6 +34,7 @@ class GroupedBatchSampler(BatchSampler):
                 yield indices
 
     def __len__(self):
+        # Approximate number of batches in the sampler
         return len(self.sampler) // self.batch_size
 
 def create_aspect_ratio_groups(dataset):
@@ -48,8 +50,18 @@ def create_aspect_ratio_groups(dataset):
     """
     print("Grouping images by Aspect Ratio (3 Groups)...")
     
-    target_min_size = dataset.target_min_size
-    scaling_factor = dataset.scaling_factor
+    # 1. Handle Subsets (Train/Val Splits)
+    # If dataset is a Subset, we need to access the parent dataset via .dataset
+    # and map the indices correctly.
+    if isinstance(dataset, torch.utils.data.Subset):
+        main_dataset = dataset.dataset
+        indices = dataset.indices
+    else:
+        main_dataset = dataset
+        indices = range(len(dataset))
+
+    target_min_size = main_dataset.target_min_size
+    scaling_factor = main_dataset.scaling_factor
     
     # --- CONFIGURATION: Aspect ratio breakpoints ---
     # Everything < 1 goes to Group 0
@@ -59,9 +71,9 @@ def create_aspect_ratio_groups(dataset):
     breakpoints = [1.1, 1.5, 2] 
     group_ids = []
     
-    for i in range(len(dataset)):
+    for i in indices:
         # 1. Get Params
-        item = dataset.annotations[i]
+        item = main_dataset.annotations[i]
         orig_w = item['width']
         orig_h = item['height']
         
