@@ -10,8 +10,11 @@
         "calibrated_whiteboard_bboxes_path": "data/calibrated_whiteboard_bboxes.json",
         "whiteboard_dir": "whiteboard_data",
         "output_dir": "output",
-        "model_checkpoint_prefix": "output/fasterrcnn_resnet50_fpn.chkpt_optim_",
-        "final_model_path": "output/fasterrcnn_resnet50_fpn_final_model.dat"
+        "debug_output_dir": "output/debug_images",
+        "final_model_path": "output/models/fasterrcnn_resnet50_fpn_final_model.dat",
+        "model_checkpoint_prefix": "output/models/fasterrcnn_resnet50_fpn.chkpt_optim_epoch_",
+        "history_log_path": "output/logs/fasterrcnn_resnet50_fpn_training_log.csv",
+        "final_report_path": "output/logs/fasterrcnn_resnet50_fpn_final_report.json"
     },
     "model_params": {
         "_architecture": "fasterrcnn_resnet50_fpn",
@@ -62,7 +65,8 @@
         "num_workers": 2,
         "random_generator_seed": 42,
         "train_split_ratio": 0.9,
-        "print_freq": 15
+        "print_freq": 15,
+        "debug": true
     },
     "transform_params": {
         "target_min_size": 320,

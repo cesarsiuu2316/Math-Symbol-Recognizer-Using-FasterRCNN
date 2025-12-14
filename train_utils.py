@@ -1,7 +1,11 @@
+import os
 import torch
 import bisect
 from collections import defaultdict, Counter
 from torch.utils.data.sampler import BatchSampler
+import json
+import pandas as pd
+from datetime import datetime
 
 class GroupedBatchSampler(BatchSampler):
     """
@@ -39,12 +43,9 @@ class GroupedBatchSampler(BatchSampler):
 
 def create_aspect_ratio_groups(dataset):
     """
-    Groups images into 3 Groups:
-    0: Tall/Square (Ratio < 1.5)
-    1: Wide        (1.5 <= Ratio < 3.0)
-    2: Very Wide   (Ratio >= 3.0)
+    Groups images into groups according to their aspect ratios.
     Args:
-        dataset (MathSymbolDataset): The dataset containing annotations with width and height.
+        dataset (MathSymbolDataset): The dataset or a subset containing annotations with width and height.
     Returns:
         list: A list of group IDs corresponding to each image in the dataset.
     """
@@ -96,3 +97,113 @@ def create_aspect_ratio_groups(dataset):
     print(f"Group Stats: {dict(sorted(counts.items()))}")
     
     return group_ids
+
+def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss, avg_val_loss, chkpt_path_prefix):
+    """
+    Saves the model checkpoint.
+    Args:
+        model (torch.nn.Module): The model to save.
+        optimizer (torch.optim.Optimizer): The optimizer state to save.
+        lr_scheduler (torch.optim.lr_scheduler): The learning rate scheduler state to save.
+        epoch (int): Current epoch number.
+        avg_train_loss (float): Average training loss for the epoch.
+        avg_val_loss (float): Average validation loss for the epoch.
+        chkpt_path_config (str): Base path for saving checkpoints.
+    Returns:
+        None
+    """
+    # Ensure directory exists
+    chkpt_path = f"{chkpt_path_prefix}{epoch}.dat"
+    os.makedirs(os.path.dirname(chkpt_path), exist_ok=True)
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'lr_scheduler_state_dict': lr_scheduler.state_dict(),
+        'loss': avg_train_loss,
+        'val_loss': avg_val_loss
+    }, chkpt_path)
+    print(f"Saved checkpoint: {chkpt_path}")
+
+def save_checkpoint_config(config, epoch, chkpt_path_prefix):
+    """
+    Saves the specific configuration parameters associated with a checkpoint.
+    """
+    json_path = f"{chkpt_path_prefix}{epoch}.json"
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
+    
+    # Extract only the relevant parts of the config
+    config_snapshot = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model_params": config['model_params'],
+        "training_params": config['training_params'],
+        "transform_params": config['transform_params']
+    }
+    
+    with open(json_path, 'w') as f:
+        json.dump(config_snapshot, f, indent=4)
+        
+    print(f"Saved config log: {json_path}")
+
+def update_history_log(history_path, epoch, train_loss, val_loss, lr):
+    """
+    Updates the history CSV log.
+    """
+    os.makedirs(os.path.dirname(history_path), exist_ok=True)
+    # Create a dictionary for the new row
+    new_data = {
+        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Epoch": epoch,
+        "Train_Loss": round(train_loss, 5),
+        "Val_Loss": round(val_loss, 5),
+        "Learning_Rate": lr
+    }
+    
+    new_df = pd.DataFrame([new_data])
+    
+    if os.path.exists(history_path):
+        # Append to existing CSV (header=False)
+        new_df.to_csv(history_path, mode='a', header=False, index=False)
+    else:
+        # Create new CSV with header
+        new_df.to_csv(history_path, mode='w', header=True, index=False)
+        
+    print(f"History log updated: {history_path}")
+
+def save_final_report(history_path, report_path, config, total_time_seconds):
+    """
+    Reads the history CSV and generates a JSON summary report.
+    """
+    if not os.path.exists(history_path):
+        print("Warning: No history log found to generate report.")
+        return
+
+    # Load history
+    df = pd.read_csv(history_path)
+    
+    # Calculate Metrics
+    best_epoch_idx = df['Val_Loss'].idxmin()
+    best_epoch = int(df.loc[best_epoch_idx, 'Epoch'])
+    best_val_loss = float(df.loc[best_epoch_idx, 'Val_Loss'])
+    
+    hours, rem = divmod(total_time_seconds, 3600) 
+    minutes, seconds = divmod(rem, 60)
+    
+    report = {
+        "status": "Success",
+        "total_duration": "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds),
+        "training_summary": {
+            "total_epochs": len(df),
+            "best_epoch": best_epoch,
+            "best_validation_loss": best_val_loss,
+            "final_train_loss": float(df.iloc[-1]['Train_Loss']),
+            "final_validation_loss": float(df.iloc[-1]['Val_Loss'])
+        },
+        "full_configuration": config
+    }
+    
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    with open(report_path, 'w') as f:
+        json.dump(report, f, indent=4)
+        
+    print(f"Final report saved: {report_path}")

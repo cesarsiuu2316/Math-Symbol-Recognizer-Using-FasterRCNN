@@ -6,7 +6,10 @@ import time
 from utils import load_config
 from model import get_model
 from math_symbols_dataset import MathSymbolDataset, collate_fn
-from train_utils import GroupedBatchSampler, create_aspect_ratio_groups
+from train_utils import (GroupedBatchSampler, create_aspect_ratio_groups, save_checkpoint_model, 
+                        save_checkpoint_config, update_history_log, save_final_report)
+import numpy as np
+import cv2
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, print_freq):
     """
@@ -50,8 +53,56 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
     avg_loss = running_loss / len(data_loader)
     return avg_loss
 
+def visualize_debug_batch(images, targets, batch_size, predictions, epoch, debug_output_dir, score_threshold=0.5):
+    """
+    Saves the first image of the batch with GT (Green) and Preds (Red) boxes.
+    Args:
+        images: List of image tensors in the batch.
+        targets: List of target dicts in the batch.
+        predictions: List of prediction dicts from the model.
+        epoch (int): Current epoch number.
+        debug_output_dir (str): Directory to save debug images.
+        score_threshold (float): Score threshold for displaying predictions (Set to 0 to show all weak boxes).
+    Returns: 
+        None
+    """
+    # 1. Get the first 5 images in the batch
+    # Image is Tensor [C, H, W] -> Move to CPU -> Numpy -> Transpose to [H, W, C]
+    max_images = min(5, batch_size) # Limit to first 5 images
+    for i in range(max_images):
+        img_tensor = images[i].cpu()
+        img_np = img_tensor.permute(1, 2, 0).numpy()
+        
+        # Scale from [0, 1] to [0, 255] and convert to contiguous array for OpenCV
+        img_np = (img_np * 255).astype(np.uint8)
+        img_np = np.ascontiguousarray(img_np)
+        # Convert RGB to BGR for OpenCV
+        img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        # 2. Draw Ground Truth (Green)
+        gt_boxes = targets[i]['boxes'].cpu().numpy()
+        for box in gt_boxes:
+            x1, y1, x2, y2 = box.astype(int)
+            cv2.rectangle(img_np, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        # 3. Draw Predictions (Red)
+        # Filter by score (only show confident predictions)
+        pred_boxes = predictions[i]['boxes'].cpu().numpy()
+        pred_scores = predictions[i]['scores'].cpu().numpy()
+        
+        for box, score in zip(pred_boxes, pred_scores):
+            if score > score_threshold:
+                x1, y1, x2, y2 = box.astype(int)
+                cv2.rectangle(img_np, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.putText(img_np, f"{score:.2f}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+        # 4. Save
+        save_path = os.path.join(debug_output_dir, f"val_epoch_{epoch}_img_{i}.png")
+        cv2.imwrite(save_path, img_np)
+    print(f"Saved debug image to {save_path}")
+
 @torch.no_grad()
-def validate_loss_one_epoch(model, data_loader, device, debug=False):
+def validate_loss_one_epoch(model, data_loader, device, epoch, debug=False, debug_output_dir=""):
     """
     Calculates validation loss in train mode to get loss dict. 
     But with torch.no_grad() to avoid computing gradients.
@@ -60,7 +111,8 @@ def validate_loss_one_epoch(model, data_loader, device, debug=False):
         data_loader: DataLoader for validation data.
         device: Device to run the model on.
         epoch (int): Current epoch number.
-        debug (bool): If True, prints additional debug information.
+        debug (bool): If True, enables debug visualization for the first batch.
+        debug_output_dir (str): Directory to save debug images if debug is True.
     Returns:
         float: Average validation loss.
     """
@@ -68,10 +120,18 @@ def validate_loss_one_epoch(model, data_loader, device, debug=False):
     running_loss = 0.0
     
     print("Validating...")
-    for images, targets in data_loader:
+    for i, (images, targets) in enumerate(data_loader):
         # Send images and targets to device
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        # Debug Visualization for first batch
+        if debug and i == 0: 
+            model.eval()
+            predictions = model(images)
+            batch_size = len(images)
+            visualize_debug_batch(images, targets, batch_size, predictions, epoch, debug_output_dir, 0)
+            model.train()
 
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
@@ -188,37 +248,58 @@ def main():
     output_dir = config['paths']['output_dir']
     max_norm = config['training_params']['grad_clip_max_norm']
     print_freq = config['training_params']['print_freq']
+    debug_output_dir = config['paths']['debug_output_dir']
+    debug = config['training_params']['debug']
+    chkpt_path_prefix = config['paths']['model_checkpoint_prefix']
+    history_path = config['paths']['history_log_path']
+    report_path = config['paths']['final_report_path']
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(debug_output_dir, exist_ok=True)
     
     print("\n--- Start Training ---")
     start_time = time.time()
     
     for epoch in range(start_epoch, num_epochs + 1):
-        avg_val_loss = 0.0
-        avg_train_loss = train_one_epoch(model, optimizer, train_data_loader, device, epoch, max_norm, print_freq)
-        with torch.no_grad():
-            avg_val_loss = validate_loss_one_epoch(model, val_data_loader, device, debug=False)
+        # Train One Epoch
+        avg_train_loss = train_one_epoch(
+            model, optimizer, train_data_loader, 
+            device, epoch, max_norm, print_freq
+        )
+        # Validate One Epoch
+        avg_val_loss = validate_loss_one_epoch(
+            model, val_data_loader, 
+            device, debug, epoch, 
+            debug_output_dir
+        )
+        # Scheduler Step
         lr_scheduler.step()
         print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f}")
+        
+        # --- LOGGING AND SAVING ---
         # Save Checkpoint
-        chkpt_path_config = config['paths']['model_checkpoint_prefix']
-        chkpt_path = f"{chkpt_path_config}epoch_{epoch}.dat"
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'lr_scheduler_state_dict': lr_scheduler.state_dict(),
-            'loss': avg_train_loss,
-            'val_loss': avg_val_loss
-        }, chkpt_path)
-        print(f"Saved checkpoint: {chkpt_path}")
+        save_checkpoint_model(
+            model, optimizer, lr_scheduler, 
+            epoch, avg_train_loss, avg_val_loss, 
+            chkpt_path_prefix
+        )
+        # Save Config
+        save_checkpoint_config(config, epoch, chkpt_path_prefix)
+        # Update History Log
+        current_lr = optimizer.param_groups[0]['lr']
+        update_history_log(history_path, epoch, avg_train_loss, avg_val_loss, current_lr)
 
-    # Save final model for inference
+    # End of Training
+    total_time = time.time() - start_time
+
+    # Save Final Report (.json)
+    save_final_report(history_path, report_path, config, total_time)
+
+    # Save Final Model
     final_model_path = config['paths']['final_model_path']
     torch.save(model.state_dict(), final_model_path)
 
-    print(f"Training finished in {time.time() - start_time:.0f} seconds.")
+    print(f"Training finished in {total_time:.0f} seconds.")
 
 if __name__ == "__main__":
     main()
