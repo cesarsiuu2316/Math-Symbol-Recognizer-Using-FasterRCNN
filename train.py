@@ -8,6 +8,7 @@ from model import get_model
 from math_symbols_dataset import MathSymbolDataset, collate_fn
 from train_utils import (GroupedBatchSampler, create_aspect_ratio_groups, save_checkpoint_model, 
                         save_checkpoint_config, update_history_log, save_final_report)
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 import numpy as np
 import cv2
 
@@ -100,6 +101,39 @@ def visualize_debug_batch(images, targets, batch_size, predictions, epoch, debug
         save_path = os.path.join(debug_output_dir, f"val_epoch_{epoch}_img_{i}.png")
         cv2.imwrite(save_path, img_np)
     print(f"Saved debug image to {save_path}")
+
+@torch.no_grad()
+def evaluate_map(model, data_loader, device):
+    """
+    Calculates Mean Average Precision (mAP).
+    Requires model in .eval() mode.
+    Args:
+        model: The model to evaluate.
+        data_loader: DataLoader for evaluation data.
+        device: Device to run the model on.
+    Returns:
+        tuple: (mAP (float): Mean Average Precision, mAP_50 (float): mAP at IoU=0.5)
+    """
+    model.eval()
+    metric = MeanAveragePrecision()
+    
+    for images, targets in data_loader:
+        # 1. Move images to device
+        images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        # 3. Get Predictions
+        preds = model(images)
+        # 4. Update Metric 
+        metric.update(preds, targets)
+
+    # 5. Compute Final mAP (Returns a dict with 'map', 'map_50', 'map_75', etc.)
+    result = metric.compute()
+    
+    # We care mostly about mAP (COCO) and mAP_50 (Pascal VOC style)
+    map_score = result['map'].item()
+    map_50_score = result['map_50'].item()
+    
+    return map_score, map_50_score
 
 @torch.no_grad()
 def validate_loss_one_epoch(model, data_loader, device, epoch, debug=False, debug_output_dir=""):
@@ -263,37 +297,64 @@ def main():
     for epoch in range(start_epoch, num_epochs + 1):
         # Train One Epoch
         avg_train_loss = train_one_epoch(
-            model, optimizer, train_data_loader, 
-            device, epoch, max_norm, print_freq
+            model=model, 
+            optimizer=optimizer, 
+            data_loader=train_data_loader, 
+            device=device, 
+            epoch=epoch, 
+            max_norm=max_norm, 
+            print_freq=print_freq
         )
         # Validate One Epoch
         avg_val_loss = validate_loss_one_epoch(
-            model, val_data_loader, 
-            device, debug, epoch, 
-            debug_output_dir
+            model=model, 
+            data_loader=val_data_loader, 
+            device=device, 
+            debug=debug, 
+            epoch=epoch, 
+            debug_output_dir=debug_output_dir
         )
+        # Compute mAP and mAP_50
+        current_map, current_map50 = evaluate_map(model, val_data_loader, device)
         # Scheduler Step
         lr_scheduler.step()
-        print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f}")
+        print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f} \tmAP: {current_map:.4f} \tmAP@50: {current_map50:.4f}")
         
         # --- LOGGING AND SAVING ---
         # Save Checkpoint
         save_checkpoint_model(
-            model, optimizer, lr_scheduler, 
-            epoch, avg_train_loss, avg_val_loss, 
-            chkpt_path_prefix
+            model=model, 
+            optimizer=optimizer, 
+            lr_scheduler=lr_scheduler, 
+            epoch=epoch, 
+            avg_train_loss=avg_train_loss, 
+            avg_val_loss=avg_val_loss, 
+            mean_average_precision=current_map, 
+            chkpt_path_prefix=chkpt_path_prefix
         )
         # Save Config
-        save_checkpoint_config(config, epoch, chkpt_path_prefix)
+        save_checkpoint_config(config=config, epoch=epoch, chkpt_path_prefix=chkpt_path_prefix)
         # Update History Log
         current_lr = optimizer.param_groups[0]['lr']
-        update_history_log(history_path, epoch, avg_train_loss, avg_val_loss, current_lr)
+        update_history_log(
+            history_path=history_path, 
+            epoch=epoch, 
+            train_loss=avg_train_loss, 
+            val_loss=avg_val_loss, 
+            lr=current_lr, 
+            mean_average_precision=current_map
+        )
 
     # End of Training
     total_time = time.time() - start_time
 
     # Save Final Report (.json)
-    save_final_report(history_path, report_path, config, total_time)
+    save_final_report(
+        history_path=history_path, 
+        report_path=report_path, 
+        config=config, 
+        total_time_seconds=total_time
+    )
 
     # Save Final Model
     final_model_path = config['paths']['final_model_path']
