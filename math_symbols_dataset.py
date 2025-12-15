@@ -8,6 +8,7 @@ import random
 from utils import load_config
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import albumentations as A
 
 class MathSymbolDataset(Dataset):
     """
@@ -45,6 +46,38 @@ class MathSymbolDataset(Dataset):
         self.blur_kernels = augmentation_params['blur_kernels']
         self.noise_sigma_range = augmentation_params['noise_sigma_range']
         self.threshold_range = augmentation_params['threshold_range']
+
+        # Get affine configs
+        self.affine_scale = augmentation_params['affine_scale']
+        self.affine_translate_percent = augmentation_params['affine_translate_percent']
+        self.affine_rotate = augmentation_params['affine_rotate']
+        self.affine_shear = augmentation_params['affine_shear']
+        self.affine_fill_value = augmentation_params['affine_fill_value']
+        self.affine_probability = augmentation_params['affine_probability']
+
+        # Affine transformations
+        if self.transform:
+            self.affine_transform = A.Compose([
+                A.Compose([
+                    A.CropAndPad(
+                        percent=0.15, 
+                        border_mode=cv2.BORDER_CONSTANT, 
+                        fill=255, 
+                        p=1.0 
+                    ),
+                    A.Affine(
+                        scale=tuple(self.affine_scale),     # Zoom in/out slightly to simulate distance changes
+                        translate_percent=tuple(self.affine_translate_percent), # Shift up/down/left/right to simulate camera misalignment when capturing by 5%
+                        rotate=tuple(self.affine_rotate),   # Rotate +/- x degrees
+                        shear=tuple(self.affine_shear),     # Shear (slant) +/- x degrees
+                        fill=self.affine_fill_value,        # FILL CORNERS WITH WHITE
+                        p=1          # Apply this x% of the time
+                    )
+                ], p=self.affine_probability)
+            ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']))
+            # Pascal VOC format: [x_min, y_min, x_max, y_max]
+        else:
+            self.affine_transform = None
         
 
     def __len__(self):
@@ -118,7 +151,6 @@ class MathSymbolDataset(Dataset):
         h, w = img_gray.shape
         new_w = int(w * self.scaling_factor)
         new_h = int(h * self.scaling_factor)
-        
         img_gray = cv2.resize(img_gray, (new_w, new_h))
         
         # Scale boxes: [x1, y1, x2, y2]
@@ -154,13 +186,33 @@ class MathSymbolDataset(Dataset):
                 boxes[:, 1] += pad_top
                 boxes[:, 3] += pad_top
 
-        # 4. Domain Augmentation (Morphological)
-        # Change ink thickness sometimes + blur + noise + threshold
+        # 4. Domain Augmentation (Morphological + Noise + Affine)
+        # Change ink thickness sometimes + blur + noise + threshold + affine transformations
         if self.transform:
-            img = self.__mimic_whiteboard_ink(img_gray)
+            # Change image to rgb for albumentations
+            img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+
+            try:
+                transformed = self.affine_transform(
+                    image=img_rgb, 
+                    bboxes=boxes.tolist(), 
+                    labels=labels.tolist()
+                )
+                img_rgb = transformed['image']
+                boxes = np.array(transformed['bboxes'], dtype=np.float32)
+                labels = torch.tensor(transformed['labels'], dtype=torch.int64)
+            except Exception as e:
+                print(f"Error in affine transformation for image {img_path}: {e}")
+                pass # keep original if error occurs
+
+            # Convert back to grayscale
+            img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+
+            # Apply whiteboard ink mimicry
+            img_gray = self.__mimic_whiteboard_ink(img_gray)
 
         # Convert to RGB for model input (faster rcnn expects 3 channels)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        img = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
 
         # 5. Convert to Tensor for model input
         # Normalize to [0, 1] and permute to [C, H, W] (Channel, Height, Width)

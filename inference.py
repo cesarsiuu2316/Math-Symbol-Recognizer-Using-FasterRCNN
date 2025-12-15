@@ -127,7 +127,7 @@ def main():
 
     # 3. Run Inference
     # Threshold: Only show boxes with > 50% confidence
-    result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.1)
+    result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.5)
     
     # 4. Save and Show Results
     output_dir = "results"

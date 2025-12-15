@@ -79,17 +79,23 @@
                 3
             ],
             "blur_kernels": [
-                3,
-                5
+                3
             ],
             "noise_sigma_range": [
-                20,
-                50
+                10,
+                25
             ],
             "threshold_range": [
                 100,
                 150
-            ]
+            ],
+            "_comment_affine": "Geometric simulations: Zoom, Shift, Rotation, Slant",
+            "affine_scale": [0.9, 1.1],
+            "affine_translate_percent": [0.05, 0.05],
+            "affine_rotate": [-10, 10],
+            "affine_shear": [-5, 5],
+            "affine_fill_value": 255,
+            "affine_probability": 0.4
         }
     }
 }
