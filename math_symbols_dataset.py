@@ -71,7 +71,7 @@ class MathSymbolDataset(Dataset):
                         rotate=tuple(self.affine_rotate),   # Rotate +/- x degrees
                         shear=tuple(self.affine_shear),     # Shear (slant) +/- x degrees
                         fill=self.affine_fill_value,        # FILL CORNERS WITH WHITE
-                        p=1          # Apply this x% of the time
+                        p=1.0        # Apply this x% of the time
                     )
                 ], p=self.affine_probability)
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']))
@@ -94,6 +94,7 @@ class MathSymbolDataset(Dataset):
             morpho_kernel_size = random.choice(self.morphological_kernels)
             kernel = np.ones((morpho_kernel_size, morpho_kernel_size), np.uint8)
             op = random.choice(['erode', 'dilate', 'none'])
+            print(f"Op: {op}, Kernel Size: {morpho_kernel_size}")
             if op == 'erode':
                 # Erode image = Min filter = Expands Black (Ink gets Thicker)
                 img = cv2.erode(img, kernel, iterations=1)
@@ -118,6 +119,8 @@ class MathSymbolDataset(Dataset):
             img_noisy = img_blurred.astype(np.int16) + noise
             img_noisy = np.clip(img_noisy, 0, 255).astype(np.uint8)
             
+            # TODO: calculate new thresholds
+
             # C. Re-Binarize (Simulate the whiteboard algorithm)
             # The threshold value determines if the result is heavy or light ink
             threshold_val = random.randint(self.threshold_range[0], self.threshold_range[1])
