@@ -94,7 +94,6 @@ class MathSymbolDataset(Dataset):
             morpho_kernel_size = random.choice(self.morphological_kernels)
             kernel = np.ones((morpho_kernel_size, morpho_kernel_size), np.uint8)
             op = random.choice(['erode', 'dilate', 'none'])
-            print(f"Op: {op}, Kernel Size: {morpho_kernel_size}")
             if op == 'erode':
                 # Erode image = Min filter = Expands Black (Ink gets Thicker)
                 img = cv2.erode(img, kernel, iterations=1)
