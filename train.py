@@ -30,6 +30,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
     running_loss = 0.0
     
     for i, (images, targets) in enumerate(data_loader):
+        optimizer.zero_grad() # Zero gradients
+
         # Send all images and targets to device
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -37,7 +39,6 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
         loss_dict = model(images, targets) # Returns a dict of losses
         losses = sum(loss for loss in loss_dict.values()) # Total loss
 
-        optimizer.zero_grad() # Zero gradients
         losses.backward() # Backpropagate
 
         if max_norm > 0:
@@ -173,6 +174,28 @@ def validate_loss_one_epoch(model, data_loader, device, epoch, debug=False, debu
 
     avg_loss = running_loss / len(data_loader)
     return avg_loss
+
+def test_data_loader(data_loader, device):
+    """
+    Tests the DataLoader by iterating through one batch and printing shapes.
+    Args:
+        data_loader: DataLoader to test.
+        device: Device to move data to.
+    Returns:
+        None
+    """ 
+    print("Testing DataLoader...30 items")
+    for i, (images, targets) in enumerate(data_loader):
+        images = list(image.to(device) for image in images)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        print(f"Batch Size: {len(images)}")
+        for j in range(len(images)):
+            print(f" Image {j} shape: {images[j].shape}")
+            print(f" Target {j} boxes shape: {targets[j]['boxes'].shape}")
+        if i == 50:
+            cv2.imshow("Test Image", images[0].permute(1, 2, 0).cpu().numpy())
+            cv2.waitKey(0)
+            break
 
 def main():
     checkpoint_path = None
@@ -344,6 +367,8 @@ def main():
             lr=current_lr, 
             mean_average_precision=current_map
         )
+
+        # empty GPU cache
 
     # End of Training
     total_time = time.time() - start_time

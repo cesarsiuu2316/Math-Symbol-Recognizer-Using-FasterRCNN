@@ -62,7 +62,7 @@ class MathSymbolDataset(Dataset):
                     A.CropAndPad(
                         percent=0.15, 
                         border_mode=cv2.BORDER_CONSTANT, 
-                        fill=255, 
+                        fill=self.affine_fill_value, 
                         p=1.0 
                     ),
                     A.Affine(
@@ -194,6 +194,14 @@ class MathSymbolDataset(Dataset):
             # Change image to rgb for albumentations
             img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
 
+            # Clip boxes to image size before affine transform
+            if len(boxes) > 0:
+                h_aug, w_aug = img_rgb.shape[:2]
+                boxes[:, 0] = np.clip(boxes[:, 0], 0, w_aug)
+                boxes[:, 1] = np.clip(boxes[:, 1], 0, h_aug)
+                boxes[:, 2] = np.clip(boxes[:, 2], 0, w_aug)
+                boxes[:, 3] = np.clip(boxes[:, 3], 0, h_aug)            
+            
             try:
                 transformed = self.affine_transform(
                     image=img_rgb, 
@@ -203,6 +211,14 @@ class MathSymbolDataset(Dataset):
                 img_rgb = transformed['image']
                 boxes = np.array(transformed['bboxes'], dtype=np.float32)
                 labels = torch.tensor(transformed['labels'], dtype=torch.int64)
+
+                # Clip boxes to image size after affine transform due to possible rotation/translation
+                if len(boxes) > 0:
+                    h_aug, w_aug = img_rgb.shape[:2]
+                    boxes[:, 0] = np.clip(boxes[:, 0], 0, w_aug)
+                    boxes[:, 1] = np.clip(boxes[:, 1], 0, h_aug)
+                    boxes[:, 2] = np.clip(boxes[:, 2], 0, w_aug)
+                    boxes[:, 3] = np.clip(boxes[:, 3], 0, h_aug)  
             except Exception as e:
                 print(f"Error in affine transformation for image {img_path}: {e}")
                 pass # keep original if error occurs
