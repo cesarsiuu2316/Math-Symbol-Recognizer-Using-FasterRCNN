@@ -74,22 +74,23 @@
         "transform": true,
         "augmentation_params": {
             "_comment": "Values tuned for small ~19px median symbols",
+            "morphological_ops": ["erode", "dilate"],
             "morphological_kernels": [
-                2,
                 3
             ],
             "blur_kernels": [
                 3
             ],
             "noise_sigma_range": [
-                10,
-                25
+                5,
+                10
             ],
-            "threshold_range": [
-                100,
-                210
+            "threshold_factor_range": [
+                0.8,
+                0.95
             ],
             "_comment_affine": "Geometric simulations: Zoom, Shift, Rotation, Slant",
+            "affine_padding_percent": 0.15,
             "affine_scale": [0.9, 1.1],
             "affine_translate_percent": [0.05, 0.05],
             "affine_rotate": [-10, 10],

@@ -42,10 +42,11 @@ class MathSymbolDataset(Dataset):
         self.target_min_size = config['transform_params']['target_min_size']
         # Augmentation parameters
         augmentation_params = config['transform_params']['augmentation_params']
+        self.morphological_ops = augmentation_params['morphological_ops']
         self.morphological_kernels = augmentation_params['morphological_kernels']
         self.blur_kernels = augmentation_params['blur_kernels']
         self.noise_sigma_range = augmentation_params['noise_sigma_range']
-        self.threshold_range = augmentation_params['threshold_range']
+        self.threshold_factor_range = augmentation_params['threshold_factor_range']
 
         # Get affine configs
         self.affine_scale = augmentation_params['affine_scale']
@@ -77,8 +78,7 @@ class MathSymbolDataset(Dataset):
             ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['labels']))
             # Pascal VOC format: [x_min, y_min, x_max, y_max]
         else:
-            self.affine_transform = None
-        
+            self.affine_transform = None     
 
     def __len__(self):
         return len(self.annotations)
@@ -86,14 +86,17 @@ class MathSymbolDataset(Dataset):
     def __mimic_whiteboard_ink(self, img):
         """
         Applies 'analog' noise to digital ink to simulate whiteboard markers.
-        Input: Binary Image (0=Ink, 255=Background)
-        Output: Noisy Binary Image
+        Args: 
+            img (numpy.ndarray): Grayscale image (H, W) with white background and black ink.
+        Returns:
+            numpy.ndarray: Augmented image.
         """
         # 1. Random Global Thickness (Marker Tip Size)
-        if random.random() < 0.5:
+        if random.random() < 0.3:
             morpho_kernel_size = random.choice(self.morphological_kernels)
             kernel = np.ones((morpho_kernel_size, morpho_kernel_size), np.uint8)
-            op = random.choice(['erode', 'dilate', 'none'])
+            op = random.choice(self.morphological_ops)
+            # print(f"OP: {op}, Kernel Size: {morpho_kernel_size}")
             if op == 'erode':
                 # Erode image = Min filter = Expands Black (Ink gets Thicker)
                 img = cv2.erode(img, kernel, iterations=1)
@@ -101,30 +104,33 @@ class MathSymbolDataset(Dataset):
                 # Dilate image = Max filter = Expands White (Ink gets Thinner)
                 img = cv2.dilate(img, kernel, iterations=1)
 
-        # 2. "Expert" Trick usually used: Blur + Noise + Threshold
-        # This creates a "rough edge" and "ink skip" look
-        # Keep 15% clean to prevent over-noising
+        # 2. Blur + Noise + Threshold
         if random.random() < 0.85:
             # A. Blur to create gray transition areas
             blur_amount = random.choice(self.blur_kernels)
             img_blurred = cv2.GaussianBlur(img, (blur_amount, blur_amount), 0)
+            #print(f"Blur Amount: {blur_amount}")
             
-            # B. Add Gaussian Noise
-            # This pushes some gray pixels to black (blobs) and some to white (holes)
-            noise_sigma = random.randint(self.noise_sigma_range[0], self.noise_sigma_range[1]) # How "grainy" is the camera?
+            # B. Add Gaussian Noise            
+            noise_sigma = random.randint(self.noise_sigma_range[0], self.noise_sigma_range[1])
             noise = np.random.normal(0, noise_sigma, img_blurred.shape).astype(np.int16)
-            
-            # Add noise to image (convert to int16 to avoid overflow, then clip)
             img_noisy = img_blurred.astype(np.int16) + noise
             img_noisy = np.clip(img_noisy, 0, 255).astype(np.uint8)
-            
-            # TODO: calculate new thresholds
 
-            # C. Re-Binarize (Simulate the whiteboard algorithm)
-            # The threshold value determines if the result is heavy or light ink
-            threshold_val = random.randint(self.threshold_range[0], self.threshold_range[1])
-            _, img_result = cv2.threshold(img_noisy, threshold_val, 255, cv2.THRESH_BINARY)
-    
+            # C. Adaptive thresholding based on dynamic range
+            min_val = np.min(img_noisy) # Darkest pixel (The Ink)
+            max_val = np.max(img_noisy) # Brightest pixel (The Background)
+            dynamic_range = max_val - min_val
+            
+            if dynamic_range < 20:
+                return img
+                
+            # The threshold value is set to a random factor of the dynamic range above the min_val
+            thresh_factor = random.uniform(self.threshold_factor_range[0], self.threshold_factor_range[1]) 
+            threshold_val = (dynamic_range * thresh_factor) + min_val
+            
+            _, img_result = cv2.threshold(img_noisy, int(threshold_val), 255, cv2.THRESH_BINARY)
+            # print(f"Noise Sigma: {noise_sigma}, Threshold Value: {threshold_val:.2f}, Thresh Factor: {thresh_factor:.2f}")
             return img_result
         
         return img
@@ -311,7 +317,7 @@ def main():
 
     dataset = MathSymbolDataset(config)
 
-    for _ in range(0, 5):
+    for _ in range(0, 10):
         image_id = random.randint(0, 10000)
         test_dataset(dataset, image_id)
 
