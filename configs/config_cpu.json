@@ -70,6 +70,7 @@
     },
     "transform_params": {
         "target_min_size": 320,
+        "target_max_size": 1333,
         "scaling_factor": 0.40833864588156277,
         "transform": true,
         "augmentation_params": {

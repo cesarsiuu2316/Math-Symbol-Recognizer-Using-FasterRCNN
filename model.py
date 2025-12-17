@@ -1,7 +1,10 @@
+import os
 import torchvision
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 import json
+
+from utils import load_config
 
 def get_model(config):
     """
@@ -43,6 +46,8 @@ def get_model(config):
         weights_backbone=config['model_params']['weights_backbone'], # ImageNet weights for backbone
         trainable_backbone_layers=config['model_params']['trainable_backbone_layers'], # Unfreeze all layers (5) for domain adaptation
         rpn_anchor_generator=anchor_generator,
+        min_size=config['transform_params']['target_min_size'],
+        max_size=config['transform_params']['target_max_size']
     )
     
     # 4. Replace the Head (Classifier)
@@ -58,3 +63,13 @@ def get_model(config):
     model.roi_heads.detections_per_img = config['model_params']['roi_heads']['box_detections_per_img']
     
     return model
+
+if __name__ == "__main__":
+    if len(os.sys.argv) < 2:
+        print("Usage:")
+        print(f"\tpython {os.sys.argv[0]} <path_to_config.json>")
+        exit(1)
+    config = load_config(os.sys.argv[1])
+    
+    model = get_model(config)
+    print(model)

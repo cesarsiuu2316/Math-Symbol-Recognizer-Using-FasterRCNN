@@ -9,6 +9,11 @@ data/
 train_annotations.json
 class_mapping.json  
 
+# Logs, debug images, and checkpoints
+output/debug_images/
+output/checkpoints/
+output/logs/
+
 # Python cache files
 __pycache__/
 *.pyc

@@ -29,7 +29,7 @@ def main():
         print(f"Created {whiteboard_dir}. Please add images and run again.")
         return
 
-    # 4. Check for Existing State and Ask User
+    # 4. Check for Existing State
     wb_median_area = None
     
     # Check if the json file exists in the current directory

@@ -49,6 +49,7 @@ class MathSymbolDataset(Dataset):
         self.threshold_factor_range = augmentation_params['threshold_factor_range']
 
         # Get affine configs
+        self.affine_padding_percent = augmentation_params['affine_padding_percent']
         self.affine_scale = augmentation_params['affine_scale']
         self.affine_translate_percent = augmentation_params['affine_translate_percent']
         self.affine_rotate = augmentation_params['affine_rotate']
@@ -61,7 +62,7 @@ class MathSymbolDataset(Dataset):
             self.affine_transform = A.Compose([
                 A.Compose([
                     A.CropAndPad(
-                        percent=0.15, 
+                        percent=self.affine_padding_percent, 
                         border_mode=cv2.BORDER_CONSTANT, 
                         fill=self.affine_fill_value, 
                         p=1.0 

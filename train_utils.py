@@ -98,7 +98,7 @@ def create_aspect_ratio_groups(dataset):
     
     return group_ids
 
-def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss, avg_val_loss, mean_average_precision, chkpt_path_prefix):
+def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss, avg_val_loss, train_mAP, val_mAP, chkpt_path_prefix):
     """
     Saves the model checkpoint.
     Args:
@@ -108,7 +108,8 @@ def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss,
         epoch (int): Current epoch number.
         avg_train_loss (float): Average training loss for the epoch.
         avg_val_loss (float): Average validation loss for the epoch.
-        mean_average_precision (float): Mean Average Precision for the epoch.
+        train_mAP (float): Training mean Average Precision for the epoch.
+        val_mAP (float): Validation mean Average Precision for the epoch.
         chkpt_path_prefix (str): Base path for saving checkpoints.
     Returns:
         None
@@ -123,13 +124,20 @@ def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss,
         'lr_scheduler_state_dict': lr_scheduler.state_dict(),
         'loss': avg_train_loss,
         'val_loss': avg_val_loss,
-        'map_score': mean_average_precision
+        'train_mAP': train_mAP,
+        'val_mAP': val_mAP
     }, chkpt_path)
     print(f"Saved checkpoint: {chkpt_path}")
 
 def save_checkpoint_config(config, epoch, chkpt_path_prefix):
     """
     Saves the specific configuration parameters associated with a checkpoint.
+    Args: 
+        config (dict): The full configuration dictionary.
+        epoch (int): Current epoch number.
+        chkpt_path_prefix (str): Base path for saving config logs.
+    Returns:
+        None
     """
     json_path = f"{chkpt_path_prefix}{epoch}.json"
     os.makedirs(os.path.dirname(json_path), exist_ok=True)
@@ -147,9 +155,19 @@ def save_checkpoint_config(config, epoch, chkpt_path_prefix):
         
     print(f"Saved config log: {json_path}")
 
-def update_history_log(history_path, epoch, train_loss, val_loss, lr, mean_average_precision):
+def update_history_log(history_path, epoch, train_loss, val_loss, lr, train_mAP, val_mAP):
     """
     Updates the history CSV log.
+    Args:
+        history_path (str): Path to the history CSV file.
+        epoch (int): Current epoch number.
+        train_loss (float): Training loss for the epoch.
+        val_loss (float): Validation loss for the epoch.
+        lr (float): Learning rate for the epoch.
+        train_mAP (float): Training mean Average Precision for the epoch.
+        val_mAP (float): Validation mean Average Precision for the epoch.
+    Returns:
+        None
     """
     os.makedirs(os.path.dirname(history_path), exist_ok=True)
     # Create a dictionary for the new row
@@ -158,7 +176,8 @@ def update_history_log(history_path, epoch, train_loss, val_loss, lr, mean_avera
         "Epoch": epoch,
         "Train_Loss": round(train_loss, 5),
         "Val_Loss": round(val_loss, 5),
-        "mAP": round(mean_average_precision, 5),
+        "train_mAP": round(train_mAP, 5),
+        "val_mAP": round(val_mAP, 5),
         "Learning_Rate": lr,
     }
     
@@ -176,6 +195,13 @@ def update_history_log(history_path, epoch, train_loss, val_loss, lr, mean_avera
 def save_final_report(history_path, report_path, config, total_time_seconds):
     """
     Reads the history CSV and generates a JSON summary report.
+    Args:
+        history_path (str): Path to the history CSV file.
+        report_path (str): Path to save the final report JSON file.
+        config (dict): The full configuration dictionary.
+        total_time_seconds (float): Total training time in seconds.
+    Returns:
+        None
     """
     if not os.path.exists(history_path):
         print("Warning: No history log found to generate report.")
@@ -185,9 +211,9 @@ def save_final_report(history_path, report_path, config, total_time_seconds):
     df = pd.read_csv(history_path)
     
     # Calculate Metrics based on MeanAveragePrecision
-    best_epoch_idx = df['mAP'].idxmax()
+    best_epoch_idx = df['val_mAP'].idxmax()
     best_epoch = int(df.loc[best_epoch_idx, 'Epoch'])
-    best_mAP = float(df.loc[best_epoch_idx, 'mAP'])
+    best_mAP = float(df.loc[best_epoch_idx, 'val_mAP'])
     
     hours, rem = divmod(total_time_seconds, 3600) 
     minutes, seconds = divmod(rem, 60)
@@ -198,10 +224,11 @@ def save_final_report(history_path, report_path, config, total_time_seconds):
         "training_summary": {
             "total_epochs": len(df),
             "best_epoch": best_epoch,
-            "best_mAP": best_mAP,
+            "best_val_mAP": best_mAP,
             "final_train_loss": float(df.iloc[-1]['Train_Loss']),
             "final_validation_loss": float(df.iloc[-1]['Val_Loss']),
-            "final_mAP": float(df.iloc[-1]['mAP'])
+            "final_train_mAP": float(df.iloc[-1]['train_mAP']),
+            "final_val_mAP": float(df.iloc[-1]['val_mAP'])
         },
         "full_configuration": config
     }

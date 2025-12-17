@@ -12,7 +12,7 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 import numpy as np
 import cv2
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, print_freq):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, print_freq, debug=False, debug_output_dir=""):
     """
     Trains the model for one epoch.
     Args:
@@ -24,17 +24,27 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
         max_norm (float): Maximum norm for gradient clipping.
         print_freq (int): Frequency of printing training status.
     Returns:
-        float: Average loss over the epoch.
+        Average Training Loss (float): Average loss over the epoch.
     """
     model.train()
     running_loss = 0.0
     
     for i, (images, targets) in enumerate(data_loader):
         optimizer.zero_grad() # Zero gradients
+        torch.cuda.empty_cache()
 
         # Send all images and targets to device
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        # Debug Visualization for first batch
+        if debug and i == 0: 
+            model.eval()
+            with torch.no_grad():
+                predictions = model(images)
+            batch_size = len(images)
+            visualize_debug_batch(images, targets, batch_size, predictions, epoch, debug_output_dir, 0)
+            model.train()
 
         loss_dict = model(images, targets) # Returns a dict of losses
         losses = sum(loss for loss in loss_dict.values()) # Total loss
@@ -99,7 +109,7 @@ def visualize_debug_batch(images, targets, batch_size, predictions, epoch, debug
                 cv2.putText(img_np, f"{score:.2f}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
         # 4. Save
-        save_path = os.path.join(debug_output_dir, f"val_epoch_{epoch}_img_{i}.png")
+        save_path = os.path.join(debug_output_dir, f"epoch_{epoch}_img_{i}.png")
         cv2.imwrite(save_path, img_np)
     print(f"Saved debug image to {save_path}")
 
@@ -113,7 +123,7 @@ def evaluate_map(model, data_loader, device):
         data_loader: DataLoader for evaluation data.
         device: Device to run the model on.
     Returns:
-        tuple: (mAP (float): Mean Average Precision, mAP_50 (float): mAP at IoU=0.5)
+        mAP (float): Mean Average Precision over IoU thresholds from 0.5 to 0.95)
     """
     model.eval()
     metric = MeanAveragePrecision()
@@ -130,11 +140,9 @@ def evaluate_map(model, data_loader, device):
     # 5. Compute Final mAP (Returns a dict with 'map', 'map_50', 'map_75', etc.)
     result = metric.compute()
     
-    # We care mostly about mAP (COCO) and mAP_50 (Pascal VOC style)
+    # mAP is the mean average precision over IoU thresholds from 0.5 to 0.95
     map_score = result['map'].item()
-    map_50_score = result['map_50'].item()
-    
-    return map_score, map_50_score
+    return map_score
 
 @torch.no_grad()
 def validate_loss_one_epoch(model, data_loader, device, epoch, debug=False, debug_output_dir=""):
@@ -149,7 +157,7 @@ def validate_loss_one_epoch(model, data_loader, device, epoch, debug=False, debu
         debug (bool): If True, enables debug visualization for the first batch.
         debug_output_dir (str): Directory to save debug images if debug is True.
     Returns:
-        float: Average validation loss.
+        Validation Loss (float): Average validation loss.
     """
     model.train() # Keeping in train mode to get loss dict
     running_loss = 0.0
@@ -184,7 +192,7 @@ def test_data_loader(data_loader, device):
     Returns:
         None
     """ 
-    print("Testing DataLoader...30 items")
+    print("Testing DataLoader...50 batches")
     for i, (images, targets) in enumerate(data_loader):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -326,23 +334,30 @@ def main():
             device=device, 
             epoch=epoch, 
             max_norm=max_norm, 
-            print_freq=print_freq
+            print_freq=print_freq,
+            debug=debug,
+            debug_output_dir=debug_output_dir
         )
         # Validate One Epoch
-        avg_val_loss = validate_loss_one_epoch(
+        avg_val_loss = 0.0
+        """avg_val_loss = validate_loss_one_epoch(
             model=model, 
             data_loader=val_data_loader, 
             device=device, 
             debug=debug, 
             epoch=epoch, 
             debug_output_dir=debug_output_dir
-        )
-        # Compute mAP and mAP_50
-        current_map, current_map50 = evaluate_map(model, val_data_loader, device)
+        )"""
+        # Compute mAP
+        print("Finished training epoch, evaluating mAP...")
+        mAP_train_score = evaluate_map(model, train_data_loader, device)
+        print("Evaluating validation mAP...")
+        mAP_val_score = evaluate_map(model, val_data_loader, device)
         # Scheduler Step
+        print("Stepping LR Scheduler...")
         lr_scheduler.step()
-        print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f} \tmAP: {current_map:.4f} \tmAP@50: {current_map50:.4f}")
-        
+        #print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tAvg Validation Loss: {avg_val_loss:.4f} \tmAP Train: {mAP_train_score:.4f} \tmAP Val: {mAP_val_score:.4f}")
+        print(f"Epoch {epoch} Done. \tAvg Training Loss: {avg_train_loss:.4f} \tmAP Train: {mAP_train_score:.4f} \tmAP Val: {mAP_val_score:.4f}")
         # --- LOGGING AND SAVING ---
         # Save Checkpoint
         save_checkpoint_model(
@@ -352,7 +367,8 @@ def main():
             epoch=epoch, 
             avg_train_loss=avg_train_loss, 
             avg_val_loss=avg_val_loss, 
-            mean_average_precision=current_map, 
+            train_mAP=mAP_train_score,
+            val_mAP=mAP_val_score, 
             chkpt_path_prefix=chkpt_path_prefix
         )
         # Save Config
@@ -365,10 +381,9 @@ def main():
             train_loss=avg_train_loss, 
             val_loss=avg_val_loss, 
             lr=current_lr, 
-            mean_average_precision=current_map
+            train_mAP=mAP_train_score,
+            val_mAP=mAP_val_score
         )
-
-        # empty GPU cache
 
     # End of Training
     total_time = time.time() - start_time
