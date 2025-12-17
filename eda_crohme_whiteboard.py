@@ -16,6 +16,54 @@ def save_state(data, calibrated_whiteboard_bboxes_file):
     with open(calibrated_whiteboard_bboxes_file, 'w') as f:
         json.dump(data, f, indent=4)
 
+def calculate_optimal_max_size(annotations_path, scaling_factor, percentile=95):
+    """
+    Calculates the optimal target_max_size based on the distribution of 
+    CROHME images after applying the whiteboard scaling factor.
+    Args: 
+        annotations_path (str): Path to the CROHME annotations JSON file.
+        scaling_factor (float): Scaling factor derived from whiteboard calibration.
+        percentile (int): Percentile to determine optimal max_size.
+    Returns:
+        int: Calculated optimal target_max_size.
+    """
+    if not os.path.exists(annotations_path):
+        print(f"Error: Annotations file not found at {annotations_path}")
+        return None
+
+    with open(annotations_path, 'r') as f:
+        data = json.load(f)
+        
+    scaled_dimensions = []
+    
+    print(f"Calculating optimal max_size (p{percentile}) with factor {scaling_factor:.4f}...")
+    
+    for item in data['annotations']:
+        # Original dims
+        w = item['width']
+        h = item['height']
+        
+        # Apply Scaling
+        new_w = w * scaling_factor
+        new_h = h * scaling_factor
+        
+        # We care about the maximum dimension of the image
+        scaled_dimensions.append(max(new_w, new_h))
+        
+    if not scaled_dimensions:
+        return 1333 # Default fallback
+        
+    # Calculate Percentile
+    optimal_max_size = np.percentile(np.array(scaled_dimensions), percentile)
+    max_absolute = np.max(scaled_dimensions)
+    id_max = np.argmax(scaled_dimensions)
+    
+    print(f"-> Distribution Stats (Scaled):")
+    print(f"   Max Dimension (Absolute): {int(max_absolute)} px")
+    print(f"   Max Dimension (p{percentile}): {int(optimal_max_size)} px")
+    print(f"   Image causing max dimension: {data['annotations'][id_max]['image_name']}")
+    return int(optimal_max_size)
+
 def calculate_crohme_stats(annotations_path):
     """
     Calculates median width, height, and aspect ratios from CROHME annotations.
@@ -65,7 +113,6 @@ def calculate_crohme_stats(annotations_path):
     print(f"Analyzing {counter} bounding boxes from CROHME...")
     print(f"CROHME Stats: Median W={stats['median_width']:.2f}, Median H={stats['median_height']:.2f}")
     return stats
-
 
 def interactive_whiteboard_calibration(whiteboard_dir, calibrated_whiteboard_bboxes_path, reset=False):
     """

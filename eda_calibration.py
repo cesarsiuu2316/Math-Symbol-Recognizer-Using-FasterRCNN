@@ -67,11 +67,20 @@ def main():
         # Scaling factor k such that: k^2 * crohme_area = wb_area
         # k = sqrt(wb_area / crohme_area)
         scaling_factor = np.sqrt(wb_median_area / crohme_stats['median_area'])
+
+        # --- NEW: Calculate Optimal Max Size ---
+        # We use 99th percentile to cover almost all equations, clipping only the top 1% outliers.
+        target_max_size = eda.calculate_optimal_max_size(
+            annotations_path, 
+            scaling_factor, 
+            percentile=99
+        )
         
         print(f"\n--- Final Results ---")
         print(f"Median CROHME Area: {crohme_stats['median_area']:.0f}")
         print(f"Median Whiteboard Area: {wb_median_area:.0f}")
-        print(f"Calculated Scaling Factor: {scaling_factor:.2f}")
+        print(f"Calculated Scaling Factor: {scaling_factor:.4f}")
+        print(f"Optimal Target Max Size (99th percentile): {target_max_size}")
 
         # Calculate Anchor Sizes
         base_size = int(np.sqrt(wb_median_area))
@@ -85,7 +94,10 @@ def main():
 
         # Update Config
         update_config(config, {
-            "transform_params": {"scaling_factor": scaling_factor},
+            "transform_params": {
+                "scaling_factor": scaling_factor,
+                "target_max_size": target_max_size
+                },
             "model_params": {"anchor_params": {"sizes": anchor_sizes}}
         })
         print(f"Configuration file '{config["paths"]["config_path"]}' updated successfully.")
