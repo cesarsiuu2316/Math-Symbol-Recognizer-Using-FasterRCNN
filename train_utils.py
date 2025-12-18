@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import bisect
 from collections import defaultdict, Counter
@@ -52,8 +53,7 @@ def create_aspect_ratio_groups(dataset):
     print("Grouping images by Aspect Ratio (4 Groups)...")
     
     # 1. Handle Subsets (Train/Val Splits)
-    # If dataset is a Subset, we need to access the parent dataset via .dataset
-    # and map the indices correctly.
+    # If dataset is a Subset, we need to access the parent dataset via .dataset and map the indices correctly.
     if isinstance(dataset, torch.utils.data.Subset):
         main_dataset = dataset.dataset
         indices = dataset.indices
@@ -62,15 +62,10 @@ def create_aspect_ratio_groups(dataset):
         indices = range(len(dataset))
 
     target_min_size = main_dataset.target_min_size
+    target_max_size = main_dataset.target_max_size
     scaling_factor = main_dataset.scaling_factor
     
-    # --- CONFIGURATION: Aspect ratio breakpoints ---
-    # Everything < 1 goes to Group 0
-    # Everything 1 to 1.5 goes to Group 1
-    # Everything 1.5 to 2 goes to Group 2
-    # Everything >= 2 goes to Group 3
-    breakpoints = [1.1, 1.5, 2] 
-    group_ids = []
+    all_ratios = []
     
     for i in indices:
         # 1. Get Params
@@ -78,9 +73,16 @@ def create_aspect_ratio_groups(dataset):
         orig_w = item['width']
         orig_h = item['height']
         
-        # 2. Simulate Transform
+        # 2. Simulate Scaling Transform
         new_w = int(orig_w * scaling_factor)
         new_h = int(orig_h * scaling_factor)
+
+        # 2. Simulate Max Cap
+        max_dim = max(new_w, new_h)
+        if max_dim > target_max_size:
+            scale = target_max_size / max_dim
+            new_w = int(new_w * scale)
+            new_h = int(new_h * scale)
         
         # 3. Simulate Padding
         final_w = max(new_w, target_min_size)
@@ -88,14 +90,21 @@ def create_aspect_ratio_groups(dataset):
         
         # 4. Calculate Ratio
         ratio = final_w / final_h
-        
-        # 5. Assign Group using bisect
-        group_id = bisect.bisect_right(breakpoints, ratio)
+        all_ratios.append(ratio)
+
+    # Dynamic breakpoints based on quantiles
+    quantiles = [25, 50, 75]
+    all_ratios_np = np.array(all_ratios)
+    dynamic_breakpoints = np.percentile(all_ratios_np, quantiles).tolist()
+
+    group_ids = []
+    for ratio in all_ratios:
+        group_id = bisect.bisect_right(dynamic_breakpoints, ratio)
         group_ids.append(group_id)
 
     counts = Counter(group_ids)
-    print(f"Group Stats: {dict(sorted(counts.items()))}")
-    
+    print(f"Calculated Breakpoints: {[round(b, 2) for b in dynamic_breakpoints]}")
+    print(f"Group Stats: {dict(sorted(counts.items()))}")    
     return group_ids
 
 def save_checkpoint_model(model, optimizer, lr_scheduler, epoch, avg_train_loss, avg_val_loss, train_mAP, val_mAP, chkpt_path_prefix):

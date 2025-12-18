@@ -21,6 +21,7 @@
         "weights": null,
         "weights_backbone": "IMAGENET1K_V1",
         "trainable_backbone_layers": 5,
+        "target_max_size": 951,
         "_comment_layers": "5 means unfreeze all layers for full retraining (required for domain shift)",
         "_get_new_anchor_params_use_comment": "1: use saved data / 2: continue where left off / 3: restart",
         "get_new_anchor_params": 1,
@@ -75,9 +76,10 @@
         "transform": true,
         "augmentation_params": {
             "_comment": "Values tuned for small ~19px median symbols",
+            "_morphological_ops_comment": "Erode removed to avoid creating blobs that lose symbol structure",
             "morphological_ops": [
-                "erode",
-                "dilate"
+                "dilate",
+                "none"
             ],
             "morphological_kernels": [
                 3
@@ -94,15 +96,6 @@
                 0.95
             ],
             "_comment_affine": "Geometric simulations: Zoom, Shift, Rotation, Slant",
-            "affine_padding_percent": 0.15,
-            "affine_scale": [
-                0.9,
-                1.1
-            ],
-            "affine_translate_percent": [
-                0.05,
-                0.05
-            ],
             "affine_rotate": [
                 -10,
                 10
@@ -112,7 +105,7 @@
                 5
             ],
             "affine_fill_value": 255,
-            "affine_probability": 0.5
+            "affine_probability": 0.25
         }
     }
 }

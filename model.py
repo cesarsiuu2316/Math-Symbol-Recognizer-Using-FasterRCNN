@@ -47,7 +47,7 @@ def get_model(config):
         trainable_backbone_layers=config['model_params']['trainable_backbone_layers'], # Unfreeze all layers (5) for domain adaptation
         rpn_anchor_generator=anchor_generator,
         min_size=config['transform_params']['target_min_size'],
-        max_size=config['transform_params']['target_max_size']
+        max_size=config['model_params']['target_max_size']
     )
     
     # 4. Replace the Head (Classifier)

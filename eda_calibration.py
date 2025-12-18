@@ -75,12 +75,14 @@ def main():
             scaling_factor, 
             percentile=99
         )
+        model_target_max_size = target_max_size + 200 # Safety margin in case of padding with affine transforms
         
         print(f"\n--- Final Results ---")
         print(f"Median CROHME Area: {crohme_stats['median_area']:.0f}")
         print(f"Median Whiteboard Area: {wb_median_area:.0f}")
         print(f"Calculated Scaling Factor: {scaling_factor:.4f}")
         print(f"Optimal Target Max Size (99th percentile): {target_max_size}")
+        print(f"Model Target Max Size (with margin): {model_target_max_size}")
 
         # Calculate Anchor Sizes
         base_size = int(np.sqrt(wb_median_area))
@@ -98,7 +100,12 @@ def main():
                 "scaling_factor": scaling_factor,
                 "target_max_size": target_max_size
                 },
-            "model_params": {"anchor_params": {"sizes": anchor_sizes}}
+            "model_params": {
+                "target_max_size": model_target_max_size,
+                "anchor_params": {
+                    "sizes": anchor_sizes
+                }
+            }
         })
         print(f"Configuration file '{config["paths"]["config_path"]}' updated successfully.")
     else:
