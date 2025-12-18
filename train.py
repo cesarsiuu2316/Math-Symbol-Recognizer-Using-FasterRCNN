@@ -62,6 +62,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, max_norm, prin
         if (i + 1) % print_freq == 0:
             print(f"Epoch [{epoch}] Batch [{i+1}/{len(data_loader)}] Loss: {loss_value:.4f}")
 
+        break
+
     avg_loss = running_loss / len(data_loader)
     return avg_loss
 
@@ -350,7 +352,8 @@ def main():
         )"""
         # Compute mAP
         print("Finished training epoch, evaluating mAP...")
-        mAP_train_score = evaluate_map(model, train_data_loader, device)
+        mAP_train_score = 0.0
+        #mAP_train_score = evaluate_map(model, train_data_loader, device)
         print("Evaluating validation mAP...")
         mAP_val_score = evaluate_map(model, val_data_loader, device)
         # Scheduler Step
