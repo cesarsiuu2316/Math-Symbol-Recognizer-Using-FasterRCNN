@@ -26,6 +26,7 @@ def visualize_debug_batch(images, targets, batch_size, predictions, epoch, id_to
     Returns: 
         None
     """
+    os.makedirs(debug_output_dir, exist_ok=True)
     # 1. Get the first 5 images in the batch
     # Image is Tensor [C, H, W] -> Move to CPU -> Numpy -> Transpose to [H, W, C]
     max_images = min(5, batch_size) # Limit to first 5 images
@@ -56,7 +57,7 @@ def visualize_debug_batch(images, targets, batch_size, predictions, epoch, id_to
                 class_name = id_to_name.get(int(label_id), str(label_id))
                 label_text = f"{class_name}"
                 cv2.rectangle(img_np, (x1, y1), (x2, y2), (0, 0, 255), 1)
-                cv2.putText(img_np, label_text, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.1, (0, 0, 255), 1)
+                cv2.putText(img_np, label_text, (x1, y1-2), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255), 1)
 
         # 4. Save
         save_path = os.path.join(debug_output_dir, f"epoch_{epoch}_img_{i}.png")
@@ -349,7 +350,7 @@ def main():
             print_freq=print_freq,
             id_to_name=id_to_name,
             debug=debug,
-            debug_output_dir=debug_output_dir
+            debug_output_dir=debug_output_dir+"/train"
         )
         # Validate One Epoch
         #avg_val_loss = 0.0
@@ -359,8 +360,8 @@ def main():
             device=device, 
             epoch=epoch,
             id_to_name=id_to_name,
-            debug=False,
-            debug_output_dir=""
+            debug=debug,
+            debug_output_dir=debug_output_dir+"/val"
         )
         # Compute mAP
         mAP_train_score = 0.0
