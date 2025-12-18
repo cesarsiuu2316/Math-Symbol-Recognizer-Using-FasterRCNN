@@ -26,7 +26,10 @@ def load_trained_model(config):
     print(f"Loading weights from {model_path}...")
     checkpoint = torch.load(model_path, map_location=device)
 
-    model.load_state_dict(checkpoint['model_state_dict'])
+    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+        model.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        model.load_state_dict(checkpoint)
         
     model.to(device)
     model.eval() # Set to evaluation mode (no gradients, inference behavior)

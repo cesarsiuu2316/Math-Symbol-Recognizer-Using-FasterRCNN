@@ -220,9 +220,12 @@ def save_final_report(history_path, report_path, config, total_time_seconds):
     df = pd.read_csv(history_path)
     
     # Calculate Metrics based on MeanAveragePrecision
-    best_epoch_idx = df['val_mAP'].idxmax()
-    best_epoch = int(df.loc[best_epoch_idx, 'Epoch'])
-    best_mAP = float(df.loc[best_epoch_idx, 'val_mAP'])
+    best_epoch_mAP_idx = df['val_mAP'].idxmax()
+    best_epoch_mAP = int(df.loc[best_epoch_mAP_idx, 'Epoch'])
+    best_mAP = float(df.loc[best_epoch_mAP_idx, 'val_mAP'])
+    best_epoch_val_loss_idx = df['Val_Loss'].idxmin()
+    best_val_loss_epoch = int(df.loc[best_epoch_val_loss_idx, 'Epoch'])
+    best_val_loss = float(df.loc[best_epoch_val_loss_idx, 'Val_Loss'])
     
     hours, rem = divmod(total_time_seconds, 3600) 
     minutes, seconds = divmod(rem, 60)
@@ -232,8 +235,10 @@ def save_final_report(history_path, report_path, config, total_time_seconds):
         "total_duration": "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds),
         "training_summary": {
             "total_epochs": len(df),
-            "best_epoch": best_epoch,
+            "best_epoch_mAP": best_epoch_mAP,
             "best_val_mAP": best_mAP,
+            "best_val_loss_epoch": best_val_loss_epoch,
+            "best_val_loss": best_val_loss,
             "final_train_loss": float(df.iloc[-1]['Train_Loss']),
             "final_validation_loss": float(df.iloc[-1]['Val_Loss']),
             "final_train_mAP": float(df.iloc[-1]['train_mAP']),

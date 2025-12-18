@@ -9,10 +9,15 @@ data/
 train_annotations.json
 class_mapping.json  
 
-# Logs, debug images, and checkpoints
+# Logs, debug images, models, and checkpoints
+output/
 output/debug_images/
 output/checkpoints/
 output/logs/
+output/models/
+
+# Dont save results of inference
+results/
 
 # Python cache files
 __pycache__/

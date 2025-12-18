@@ -21,7 +21,7 @@
         "weights": null,
         "weights_backbone": "IMAGENET1K_V1",
         "trainable_backbone_layers": 5,
-        "target_max_size": 951,
+        "target_max_size": 2000,
         "_comment_layers": "5 means unfreeze all layers for full retraining (required for domain shift)",
         "_get_new_anchor_params_use_comment": "1: use saved data / 2: continue where left off / 3: restart",
         "get_new_anchor_params": 1,
@@ -43,7 +43,7 @@
         },
         "roi_heads": {
             "_comment_box_detections_per_img": "Estimar maxima cantidad de simbolos por imagen en pizarra blanca",
-            "box_detections_per_img": 100,
+            "box_detections_per_img": 500,
             "box_nms_thresh": 0.5,
             "box_score_thresh": 0.05,
             "_comment_nms": "IoU threshold: Boxes overlapping more than 0.5 will be suppressed.",
@@ -53,14 +53,14 @@
     "training_params": {
         "device": "cuda",
         "batch_size": 12,
-        "num_epochs": 500,
+        "num_epochs": 100,
         "learning_rate": 0.0001,
         "weight_decay": 0.05,
         "optimizer": "AdamW",
         "grad_clip_max_norm": 10.0,
         "lr_scheduler": {
             "type": "StepLR",
-            "step_size": 3,
+            "step_size": 30,
             "gamma": 0.1
         },
         "num_workers": 6,

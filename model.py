@@ -31,9 +31,10 @@ def get_model(config):
     # AnchorGenerator expects a tuple of tuples for sizes and aspect ratios
     # One tuple for each feature map level. We use the same for all levels here for simplicity.
     # In a standard FPN with 5 levels, we repeat the configuration 5 times.
+    num_fpn_levels = 5
     anchor_generator = AnchorGenerator(
-        sizes=tuple([tuple(anchor_sizes) for _ in range(trainable_backbone_layers)]),
-        aspect_ratios=tuple([tuple(aspect_ratios) for _ in range(trainable_backbone_layers)])
+        sizes=tuple([tuple(anchor_sizes) for _ in range(num_fpn_levels)]),
+        aspect_ratios=tuple([tuple(aspect_ratios) for _ in range(num_fpn_levels)])
     )
     
     # 3. Load Pre-trained Model
