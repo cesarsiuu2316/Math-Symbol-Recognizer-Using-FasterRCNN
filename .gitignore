@@ -19,6 +19,12 @@ output/models/
 # Dont save results of inference
 results/
 
+# Colab and kaggle stuff
+configs/config_cuda_colab.json
+configs/config_cuda_kaggle.json
+train_colab.ipynb
+train_kaggle.ipynb
+
 # Python cache files
 __pycache__/
 *.pyc
