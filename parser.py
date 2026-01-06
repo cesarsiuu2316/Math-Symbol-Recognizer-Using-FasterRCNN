@@ -77,7 +77,7 @@ def parse_lg_file(file_path) -> list:
             
     return results
 
-def process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir):
+def process_dataset(lg_dir, mapping_path, original_annotations_path, original_image_dir):
     """
     Scans all .lg files, generates class mapping, and saves all annotations to a single JSON.
     
@@ -107,7 +107,7 @@ def process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir):
         image_filename = base_name + ".png"
         
         # Aspect Ratio Check
-        image_path = os.path.join(train_image_dir, image_filename)
+        image_path = os.path.join(original_image_dir, image_filename)
         if os.path.exists(image_path):
             with Image.open(image_path) as img:
                 width, height = img.size
@@ -147,9 +147,9 @@ def process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir):
         "annotations": all_annotations
     }
 
-    with open(annotations_path, 'w') as f:
+    with open(original_annotations_path, 'w') as f:
         json.dump(annotations_json, f, indent=4)
-    print(f"Saved {len(all_annotations)} annotated samples to {annotations_path}")
+    print(f"Saved {len(all_annotations)} annotated samples to {original_annotations_path}")
     
     return class_mapping, all_annotations
 
@@ -164,14 +164,13 @@ def main():
 
     lg_dir = config['paths']['train_lg_dir']
     mapping_path = config['paths']['class_mapping_path']
-    annotations_path = config['paths']['train_annotations_path']
+    original_annotations_path = config['paths']['original_annotations_path']
     data_dir = config['paths']['data_dir']
-    train_image_dir = config['paths']['train_image_dir']
+    original_image_dir = config['paths']['original_image_dir']
     
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    process_dataset(lg_dir, mapping_path, annotations_path, train_image_dir)
-
+    process_dataset(lg_dir, mapping_path, original_annotations_path, original_image_dir)
 
 if __name__ == "__main__":
     main()

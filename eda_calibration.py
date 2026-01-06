@@ -13,8 +13,8 @@ def main():
 
     # 2. Get CROHME Stats
     print("\n--- Step 1: CROHME Analysis ---")
-    annotations_path = config['paths']['train_annotations_path']
-    crohme_stats = eda.calculate_crohme_stats(annotations_path)
+    original_annotations_path = config['paths']['original_annotations_path']
+    crohme_stats = eda.calculate_crohme_stats(original_annotations_path)
     
     if not crohme_stats:
         print("Error: Could not get CROHME stats.")
@@ -71,7 +71,7 @@ def main():
         # --- NEW: Calculate Optimal Max Size ---
         # We use 99th percentile to cover almost all equations, clipping only the top 1% outliers.
         target_max_size = eda.calculate_optimal_max_size(
-            annotations_path, 
+            original_annotations_path, 
             scaling_factor, 
             percentile=99
         )

@@ -2,11 +2,13 @@
     "paths": {
         "config_path": "configs/config_cpu.json",
         "crohme_dir": "TC11_CROHME23",
-        "train_image_dir": "TC11_CROHME23/IMG/train/OffHME",
+        "original_image_dir": "TC11_CROHME23/IMG/train/OffHME",
+        "synthetic_image_dir": "data/synthetic_images",
         "train_lg_dir": "TC11_CROHME23/SymLG/train/OffHME",
         "data_dir": "data",
         "class_mapping_path": "data/class_mapping.json",
-        "train_annotations_path": "data/train_annotations.json",
+        "original_annotations_path": "data/original_annotations.json",
+        "synthetic_annotations_path": "data/synthetic_annotations.json",
         "calibrated_whiteboard_bboxes_path": "data/calibrated_whiteboard_bboxes.json",
         "whiteboard_dir": "whiteboard_data",
         "output_dir": "output",
@@ -68,6 +70,17 @@
         "train_split_ratio": 0.9,
         "print_freq": 15,
         "debug": true
+    },
+    "synthetic_data_params":{
+        "num_synthetic_images": 10000,
+        "max_symbols_per_image": 10,
+        "min_symbols_per_image": 3,
+        "canvas_size": [
+            1024,
+            1024
+        ],
+        "max_attempts_per_symbol": 50,
+        "overlap_tolerance": 0.1
     },
     "transform_params": {
         "target_min_size": 64,
