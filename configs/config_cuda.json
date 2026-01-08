@@ -54,7 +54,7 @@
     },
     "training_params": {
         "device": "cuda",
-        "batch_size": 12,
+        "batch_size": 8,
         "num_epochs": 100,
         "learning_rate": 0.0001,
         "weight_decay": 0.05,
@@ -79,12 +79,12 @@
             1024,
             1024
         ],
-        "max_attempts_per_symbol": 50,
+        "max_attempts_per_symbol": 100,
         "overlap_tolerance": 0.1
     },
     "transform_params": {
         "target_min_size": 64,
-        "target_max_size": 751,
+        "target_max_size": 1024,
         "scaling_factor": 0.40833864588156277,
         "transform": true,
         "augmentation_params": {
