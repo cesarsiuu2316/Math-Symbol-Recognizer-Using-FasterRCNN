@@ -26,7 +26,6 @@ def get_model(config):
     # 2. Configure Custom Anchor sizes and aspect ratios found in EDA
     anchor_sizes = config['model_params']['anchor_params']['sizes']
     aspect_ratios = config['model_params']['anchor_params']['aspect_ratios']
-    trainable_backbone_layers = config['model_params']['trainable_backbone_layers']
     
     # AnchorGenerator expects a tuple of tuples for sizes and aspect ratios
     # One tuple for each feature map level. We use the same for all levels here for simplicity.

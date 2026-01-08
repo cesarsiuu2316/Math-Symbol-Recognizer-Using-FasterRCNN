@@ -252,10 +252,12 @@ def main():
     
     print(f"Dataset Split: {len(train_dataset)} Train, {len(val_dataset)} Validation")
 
+    '''
     # 3. Setup Grouped Batch Sampler
     # Create random sampler (indexes)
     train_sampler = RandomSampler(train_dataset)
     val_sampler = SequentialSampler(val_dataset)
+
     # Calculate groups based on aspect ratios
     train_group_ids = create_aspect_ratio_groups(train_dataset)
     val_group_ids = create_aspect_ratio_groups(val_dataset)
@@ -264,11 +266,14 @@ def main():
     # Create Custom GroupedBatchSampler Instance
     train_batch_sampler = GroupedBatchSampler(train_sampler, train_group_ids, batch_size)
     val_batch_sampler = GroupedBatchSampler(val_sampler, val_group_ids, batch_size)
+    '''
 
     # 4. DataLoader
+    batch_size = config['training_params']['batch_size']
     num_workers = config['training_params']['num_workers']
     pin_memory = True if device.type == 'cuda' else False
 
+    '''
     train_data_loader = DataLoader(
         train_dataset,
         batch_sampler=train_batch_sampler, 
@@ -279,6 +284,24 @@ def main():
     val_data_loader = DataLoader(
         val_dataset,
         batch_sampler=val_batch_sampler,
+        num_workers=num_workers,
+        collate_fn=collate_fn,
+        pin_memory=pin_memory
+    )
+    '''
+
+    train_data_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        collate_fn=collate_fn,
+        pin_memory=pin_memory
+    )
+    val_data_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
         num_workers=num_workers,
         collate_fn=collate_fn,
         pin_memory=pin_memory
