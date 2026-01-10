@@ -142,43 +142,71 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 def test_dataset(dataset, image_id=0):
-    # Test the dataset    
-    print(f"Dataset size: {len(dataset)}")
+    '''
+    Show original image and augmented image from dataset for a given image_id. Draw the bboxes and the labels of the augmented image.
+    Args:
+        dataset (MathSymbolDataset): The dataset to test.
+        image_id (int): The image index to visualize.
+    Returns:
+        None
+    '''
+    # 1. Retrieve Augmented Image and Target
+    aug_img_tensor, target = dataset[image_id]
     
-    # Get a sample
-    img, target = dataset[image_id]
-    print(f"Image shape: {img.shape}")
-    print(f"Target keys: {target.keys()}")
-    print(f"Number of boxes: {len(target['boxes'])}")
+    # Convert tensor (C, H, W) to numpy (H, W, C)
+    aug_img = aug_img_tensor.permute(1, 2, 0).numpy()
+    aug_img = (aug_img * 255).astype(np.uint8)
     
-    # Visualize
-    # Convert back to numpy [H, W, C]
-    original_images_path = dataset.img_dir
-    original_img_path = os.path.join(original_images_path, os.path.basename(dataset.annotations[image_id]['image_name']))
-    original_img = cv2.imread(original_img_path)
-    original_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
-    img_np = img.permute(1, 2, 0).numpy()
+    # 2. Retrieve Original Image
+    item_info = dataset.annotations[image_id]
+    img_name = item_info['image_name']
+    img_path = os.path.join(dataset.img_dir, img_name)
     
-    # Plot original image with boxes and augmentated image
-    _, ax = plt.subplots(1, 2, figsize=(8, 16))
-    ax[0].imshow(original_img)
-    ax[0].set_title("Original Image with Boxes")
-    for box in dataset.annotations[image_id]['boxes']:
-        x1, y1, x2, y2 = box
-        w = x2 - x1
-        h = y2 - y1
-        rect = patches.Rectangle((x1, y1), w, h, linewidth=1, edgecolor='r', facecolor='none')
-        ax[0].add_patch(rect)
+    orig_img = cv2.imread(img_path)
+    if orig_img is not None:
+        orig_img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
+    else:
+        print(f"Warning: Original image not found at {img_path}")
+        orig_img = np.zeros_like(aug_img)
+
+    # 3. Plotting
+    fig, axes = plt.subplots(1, 2, figsize=(18, 12))
     
-    ax[1].imshow(img_np)
-    ax[1].set_title("Augmented Image with Boxes")
-    for box in target['boxes']:
-        x1, y1, x2, y2 = box.numpy()
-        w = x2 - x1
-        h = y2 - y1
-        rect = patches.Rectangle((x1, y1), w, h, linewidth=1, edgecolor='r', facecolor='none')
-        ax[1].add_patch(rect)
+    # Show Original
+    axes[0].imshow(orig_img)
+    axes[0].set_title(f"Original: {img_name}")
+    
+    # Show Augmented with Boxes
+    axes[1].imshow(aug_img)
+    axes[1].set_title(f"Augmented (Ref ID: {image_id})")
+    
+    # Draw Bounding Boxes
+    boxes = target['boxes'].numpy()
+    labels = target['labels'].numpy()
+    
+    # Create mapping ID -> Label Name
+    id_to_class = {v: k for k, v in dataset.class_mapping.items()}
+
+    for box, label in zip(boxes, labels):
+        x_min, y_min, x_max, y_max = box
+        width = x_max - x_min
+        height = y_max - y_min
         
+        # Add Rectangle
+        rect = patches.Rectangle((x_min, y_min), width, height, linewidth=2, edgecolor='red', facecolor='none')
+        axes[1].add_patch(rect)
+        
+        # Add Label
+        class_name = id_to_class.get(label, str(label))
+        axes[1].text(
+            x_min, y_min - 5, 
+            class_name, 
+            color='white', 
+            fontsize=8, 
+            bbox=dict(facecolor='red', alpha=0.5, pad=1, edgecolor='none')
+        )
+
+    plt.tight_layout()
     plt.show()
 
 def main():

@@ -35,7 +35,7 @@ def load_trained_model(config, model_path=None):
         model.load_state_dict(checkpoint['model_state_dict'])
     else:
         model.load_state_dict(checkpoint)
-        
+    
     model.to(device)
     model.eval() # Set to evaluation mode (no gradients, inference behavior)
     
@@ -74,6 +74,19 @@ def predict_and_draw(model, device, image_path, id_to_name, threshold=0.5):
     # 1. Load Image
     img_bgr = cv2.imread(image_path)
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+    # --- NEW: PREVENT RESIZING TRICK ---
+    # We get the actual dimensions of the loaded image
+    h, w = img_rgb.shape[:2]
+    min_dim = min(h, w)
+    max_dim = max(h, w)
+
+    # We force the model's transformation parameters to match this specific image.
+    # Logic: scale = min_size / min_dim
+    # If min_size == min_dim, then scale == 1.0 (No Resize)
+    model.transform.min_size = (min_dim,) 
+    model.transform.max_size = max_dim 
+    # -----------------------------------
     
     # 2. Preprocess (Normalize and Convert to Tensor)
     img_tensor = torch.from_numpy(img_rgb).permute(2, 0, 1).float() / 255.0
@@ -104,11 +117,11 @@ def predict_and_draw(model, device, image_path, id_to_name, threshold=0.5):
             # Color varies according to score percentage
             # Greener > 95 to Yellow > 90 to Redder > 80
             color = (0, int(255 * min((score - 0.8) / 0.15, 1.0)), int(255 * max(0, 1.0 - (score - 0.8) / 0.15)))
-            cv2.rectangle(img_result, (x1, y1), (x2, y2), color, 2)
+            cv2.rectangle(img_result, (x1, y1), (x2, y2), color, 1)
             
             # Draw Label (White text with Red background)
             x1, y1, x2, y2 = box.astype(int)
-            cv2.rectangle(img_result, (x1, y1), (x2, y2), (0, 0, 255), 1)
+            #cv2.rectangle(img_result, (x1, y1), (x2, y2), (0, 0, 255), 1)
             cv2.putText(img_result, class_name, (x1, y1-2), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
     print(f"Displayed {count} detections with score > {threshold}")
@@ -145,7 +158,7 @@ def main():
 
         # 3. Run Inference
         # Threshold: Only show boxes with > 50% confidence
-        result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.7)
+        result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.8)
         
         # 4. Save and Show Results
         output_dir = "results"

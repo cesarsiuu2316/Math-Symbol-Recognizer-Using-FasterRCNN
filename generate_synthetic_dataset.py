@@ -158,7 +158,6 @@ def transform_stamp(stamp, transform_params, class_mapping):
             bottom_pad = rot_pad_h - top_pad
             left_pad = rot_pad_w // 2
             right_pad = rot_pad_w - left_pad
-
             # Apply the padding using OpenCV
             img_rgb = cv2.copyMakeBorder(
                 img_rgb, 
@@ -335,7 +334,7 @@ def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_
 
         if not placed: 
             count_skipped += 1
-            print("Could not place stamp without collision, skipping and adding to deck again.")
+            #print("Could not place stamp without collision, skipping and adding to deck again.")
             # add back the stamp to the deck for future use
             stamp_deck.append(stamp_idx)
                     
