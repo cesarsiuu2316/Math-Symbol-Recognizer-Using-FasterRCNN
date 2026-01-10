@@ -6,7 +6,7 @@ whiteboard_data/
 data/
 
 # Json files of annotations and mappings
-train_annotations.json
+original_annotations.json
 class_mapping.json  
 
 # Logs, debug images, models, and checkpoints

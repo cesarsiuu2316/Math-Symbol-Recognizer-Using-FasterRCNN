@@ -21,7 +21,7 @@ Math-Symbol-Recognizer-Using-FasterRCNN/
 ├── data/                       # Generated annotations and class mappings
 │   ├── calibrated_whiteboard_bboxes.json  # Pre-calculated whiteboard stats
 │   ├── class_mapping.json      # Map between symbol names and IDs
-│   └── train_annotations.json  # Parsed training data
+│   └── original_annotations.json  # Parsed training data
 ├── output/                     # Training outputs
 │   ├── logs/                   # TensorBoard logs and JSON reports
 │   └── models/                 # Saved model checkpoints (.pth)

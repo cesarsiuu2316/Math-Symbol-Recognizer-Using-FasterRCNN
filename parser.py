@@ -164,9 +164,9 @@ def main():
 
     lg_dir = config['paths']['train_lg_dir']
     mapping_path = config['paths']['class_mapping_path']
-    annotations_path = config['paths']['train_annotations_path']
+    annotations_path = config['paths']['original_annotations_path']
     data_dir = config['paths']['data_dir']
-    train_image_dir = config['paths']['train_image_dir']
+    train_image_dir = config['paths']['original_image_dir']
     
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)

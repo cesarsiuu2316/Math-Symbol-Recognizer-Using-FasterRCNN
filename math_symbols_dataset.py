@@ -21,10 +21,10 @@ class MathSymbolDataset(Dataset):
             config (dict): Configuration dictionary.
         """
         self.config = config
-        self.img_dir = config['paths']['train_image_dir']
+        self.img_dir = config['paths']['original_image_dir']
 
         # Load annotations
-        annotations_path = config['paths']['train_annotations_path']
+        annotations_path = config['paths']['original_annotations_path']
         with open(annotations_path, 'r') as f:
             self.annotations = json.load(f)
 

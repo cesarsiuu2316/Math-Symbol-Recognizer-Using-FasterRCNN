@@ -47,6 +47,7 @@ def get_model(config):
         weights_backbone=config['model_params']['weights_backbone'], # ImageNet weights for backbone
         trainable_backbone_layers=config['model_params']['trainable_backbone_layers'], # Unfreeze all layers (5) for domain adaptation
         rpn_anchor_generator=anchor_generator,
+        _skip_resize=True,  
         min_size=config['transform_params']['target_min_size'],
         max_size=config['model_params']['target_max_size']
     )

@@ -7,6 +7,7 @@ from torch.utils.data.sampler import BatchSampler
 import json
 import pandas as pd
 from datetime import datetime
+from tqdm import tqdm
 
 class GroupedBatchSampler(BatchSampler):
     """
@@ -56,54 +57,71 @@ def create_aspect_ratio_groups(dataset):
     # If dataset is a Subset, we need to access the parent dataset via .dataset and map the indices correctly.
     if isinstance(dataset, torch.utils.data.Subset):
         main_dataset = dataset.dataset
-        indices = dataset.indices
     else:
         main_dataset = dataset
-        indices = range(len(dataset))
 
     target_min_size = main_dataset.target_min_size
     target_max_size = main_dataset.target_max_size
     scaling_factor = main_dataset.scaling_factor
+
+    num_area_bins = 10 # Control VRAM usage by grouping by area as well
+
+    widths = []
+    heights = []
     
-    all_ratios = []
-    
-    for i in indices:
-        # 1. Get Params
+    for i in tqdm(range(len(main_dataset)), desc="Analyzing image sizes"):
         item = main_dataset.annotations[i]
         orig_w = item['width']
         orig_h = item['height']
-        
-        # 2. Simulate Scaling Transform
+
+        # A. Simulate Scale
         new_w = int(orig_w * scaling_factor)
         new_h = int(orig_h * scaling_factor)
 
-        # 2. Simulate Max Cap
+        # B. Simulate Max Cap
         max_dim = max(new_w, new_h)
         if max_dim > target_max_size:
             scale = target_max_size / max_dim
             new_w = int(new_w * scale)
             new_h = int(new_h * scale)
         
-        # 3. Simulate Padding
+        # C. Simulate Padding (Min Size)
         final_w = max(new_w, target_min_size)
         final_h = max(new_h, target_min_size)
+
+        widths.append(final_w)
+        heights.append(final_h)
+        # ----------------------------
         
-        # 4. Calculate Ratio
-        ratio = final_w / final_h
-        all_ratios.append(ratio)
+    widths = np.array(widths)
+    heights = np.array(heights)
 
-    # Dynamic breakpoints based on quantiles
-    quantiles = [25, 50, 75]
-    all_ratios_np = np.array(all_ratios)
-    dynamic_breakpoints = np.percentile(all_ratios_np, quantiles).tolist()
+    # Calculate aspect ratios and areas
+    areas = widths * heights
+    aspect_ratios = widths / heights
 
+    # Dynamic breakpoints based on quantiles for aspect ratios
+    aspect_ratio_quantiles = [25, 50, 75]
+    aspect_ratio_breakpoints = np.percentile(aspect_ratios, aspect_ratio_quantiles).tolist()
+
+    # Dynamic breakpoints for areas
+    area_quantiles = np.linspace(0, 100, num_area_bins + 1)[1:-1] # Exclude 0% and 100%
+    area_breakpoints = np.percentile(areas, area_quantiles).tolist()
+
+    print(f"Aspect Ratio Breakpoints: {[round(b, 2) for b in aspect_ratio_breakpoints]}")
+    print(f"Area Breakpoints: {[round(b, 2) for b in area_breakpoints]}")
+
+    # Assign groups to ids
     group_ids = []
-    for ratio in all_ratios:
-        group_id = bisect.bisect_right(dynamic_breakpoints, ratio)
+    for ratio, area in zip(aspect_ratios, areas):
+        area_bin = bisect.bisect_right(area_breakpoints, area)
+        aspect_ratio_bin = bisect.bisect_right(aspect_ratio_breakpoints, ratio)
+        
+        # Grid where rows = aspect ratio bins, columns = area bins
+        group_id = aspect_ratio_bin * num_area_bins + area_bin
         group_ids.append(group_id)
 
     counts = Counter(group_ids)
-    print(f"Calculated Breakpoints: {[round(b, 2) for b in dynamic_breakpoints]}")
     print(f"Group Stats: {dict(sorted(counts.items()))}")    
     return group_ids
 
