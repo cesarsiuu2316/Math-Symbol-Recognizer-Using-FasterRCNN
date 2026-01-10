@@ -106,24 +106,24 @@ class MathSymbolDataset(Dataset):
             noise = np.random.normal(0, noise_sigma, img_blurred.shape).astype(np.int16)
             img_noisy = img_blurred.astype(np.int16) + noise
             img_noisy = np.clip(img_noisy, 0, 255).astype(np.uint8)
+            img = img_noisy
 
-            # C. Adaptive thresholding based on dynamic range
-            min_val = np.min(img_noisy) # Darkest pixel (The Ink)
-            max_val = np.max(img_noisy) # Brightest pixel (The Background)
-            dynamic_range = max_val - min_val
-            
-            if dynamic_range < 20:
-                return img
-                
-            # The threshold value is set to a random factor of the dynamic range above the min_val
-            thresh_factor = random.uniform(self.threshold_factor_range[0], self.threshold_factor_range[1]) 
-            threshold_val = (dynamic_range * thresh_factor) + min_val
-            
-            _, img_result = cv2.threshold(img_noisy, int(threshold_val), 255, cv2.THRESH_BINARY)
-            # print(f"Noise Sigma: {noise_sigma}, Threshold Value: {threshold_val:.2f}, Thresh Factor: {thresh_factor:.2f}")
-            return img_result
+        # C. Adaptive thresholding based on dynamic range
+        min_val = np.min(img) # Darkest pixel (The Ink)
+        max_val = np.max(img) # Brightest pixel (The Background)
+        dynamic_range = max_val - min_val
         
-        return img
+        if dynamic_range < 20:
+            return img
+            
+        # The threshold value is set to a random factor of the dynamic range above the min_val
+        thresh_factor = random.uniform(self.threshold_factor_range[0], self.threshold_factor_range[1]) 
+        threshold_val = (dynamic_range * thresh_factor) + min_val
+        
+        _, img_result = cv2.threshold(img, int(threshold_val), 255, cv2.THRESH_BINARY)
+        # print(f"Noise Sigma: {noise_sigma}, Threshold Value: {threshold_val:.2f}, Thresh Factor: {thresh_factor:.2f}") 
+        
+        return img_result
 
     def __getitem__(self, idx):
         # 1. Load Data
