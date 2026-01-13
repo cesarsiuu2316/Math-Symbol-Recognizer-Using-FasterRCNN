@@ -73,18 +73,18 @@
     },
     "synthetic_data_params":{
         "num_synthetic_images": 10000,
-        "max_symbols_per_image": 10,
-        "min_symbols_per_image": 3,
+        "max_symbols_per_image": 4,
+        "min_symbols_per_image": 1,
         "canvas_size": [
-            1024,
-            1024
+            256,
+            256
         ],
         "max_attempts_per_symbol": 100,
-        "overlap_tolerance": 0.1
+        "overlap_tolerance": 0.15
     },
     "transform_params": {
         "target_min_size": 64,
-        "target_max_size": 1024,
+        "target_max_size": 256,
         "scaling_factor": 0.40833864588156277,
         "transform": true,
         "augmentation_params": {

@@ -116,7 +116,7 @@ def predict_and_draw(model, device, image_path, id_to_name, threshold=0.5):
             # Draw Box (Red)
             # Color varies according to score percentage
             # Greener > 95 to Yellow > 90 to Redder > 80
-            color = (0, int(255 * min((score - 0.8) / 0.15, 1.0)), int(255 * max(0, 1.0 - (score - 0.8) / 0.15)))
+            color = (0, int(255 * min((score - 0.7) / 0.15, 1.0)), int(255 * max(0, 1.0 - (score - 0.7) / 0.15)))
             cv2.rectangle(img_result, (x1, y1), (x2, y2), color, 1)
             
             # Draw Label (White text with Red background)
@@ -158,7 +158,7 @@ def main():
 
         # 3. Run Inference
         # Threshold: Only show boxes with > 50% confidence
-        result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.8)
+        result_img = predict_and_draw(model, device, img_path, id_to_name, threshold=0.7)
         
         # 4. Save and Show Results
         output_dir = "results"

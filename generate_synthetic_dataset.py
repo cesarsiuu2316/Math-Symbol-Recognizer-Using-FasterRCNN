@@ -232,7 +232,61 @@ def transform_stamp(stamp, transform_params, class_mapping):
 
     return img_gray, boxes, labels_original
 
-
+def crop_stamp_to_fit(img, boxes, labels, max_w, max_h):
+    """
+    Crops a large stamp image to fit within max_w x max_h.
+    Adjusts bounding boxes and filters labels accordingly.
+    """
+    h_img, w_img = img.shape
+    
+    # 1. Determine Crop Size (Fit strictly within max dimensions)
+    crop_w = min(w_img, max_w)
+    crop_h = min(h_img, max_h)
+    
+    # 2. Pick Random Top-Left Corner for the Crop
+    # We ensure we don't go out of bounds
+    x_off = random.randint(0, w_img - crop_w)
+    y_off = random.randint(0, h_img - crop_h)
+    
+    # 3. Crop the Image
+    img_cropped = img[y_off : y_off + crop_h, x_off : x_off + crop_w]
+    
+    # 4. Adjust Boxes
+    # Original format: [x1, y1, x2, y2]
+    # Shift boxes by the offset
+    boxes_shifted = boxes.copy()
+    boxes_shifted[:, 0] -= x_off
+    boxes_shifted[:, 2] -= x_off
+    boxes_shifted[:, 1] -= y_off
+    boxes_shifted[:, 3] -= y_off
+    
+    # 5. Clip Boxes to new image boundaries
+    boxes_shifted[:, 0] = np.clip(boxes_shifted[:, 0], 0, crop_w)
+    boxes_shifted[:, 2] = np.clip(boxes_shifted[:, 2], 0, crop_w)
+    boxes_shifted[:, 1] = np.clip(boxes_shifted[:, 1], 0, crop_h)
+    boxes_shifted[:, 3] = np.clip(boxes_shifted[:, 3], 0, crop_h)
+    
+    # 6. Filter Invalid Boxes
+    # Keep boxes that still have significant area (didn't get cropped out completely)
+    keep_indices = []
+    keep_percentage = 0.75
+    
+    for i in range(len(boxes_shifted)):
+        x1, y1, x2, y2 = boxes_shifted[i]
+        o_x1, o_y1, o_x2, o_y2 = boxes[i] # original box before shift
+        area_new = (x2 - x1) * (y2 - y1)
+        area_original = (o_x2 - o_x1) * (o_y2 - o_y1)
+        # if it keeps 80% of its area, we keep it
+        if area_new >= keep_percentage * area_original:
+            keep_indices.append(i)
+        
+    # 7. Return Filtered Results
+    final_boxes = boxes_shifted[keep_indices]
+    
+    # Filter labels using the same indices
+    final_labels = [labels[i] for i in keep_indices]
+    
+    return img_cropped, final_boxes, final_labels
 
 def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_symbols_per_image, max_attempts_per_symbol, overlap_tolerance, transform_params, class_mapping):
     """
@@ -261,7 +315,13 @@ def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_
     num_items = random.randint(min_symbols_per_image, max_symbols_per_image)
     count_skipped = 0
 
-    for _ in range(num_items):
+    num_placed = 0
+    # Add a safety break to prevent infinite loops if stamps are impossible to place
+    max_total_attempts = num_items * 10 
+    total_attempts = 0
+
+    while num_placed < num_items and total_attempts < max_total_attempts:
+        total_attempts += 1
         # Refill deck if empty
         if len(stamp_deck) == 0:
             stamp_deck.extend(list(range(len(stamps))))
@@ -276,10 +336,21 @@ def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_
         h_stamp, w_stamp = transformed_img.shape
 
         # Don't place if it's bigger than the canvas
-        if w_stamp >= W or h_stamp >= H: 
-            print("Stamp too large for canvas after scaling, skipping.")
-            count_skipped += 1
-            continue
+        if w_stamp > W or h_stamp > H:
+            # print("Stamp too large, cropping to fit...")
+            transformed_img, transformed_boxes, labels = crop_stamp_to_fit(
+                img=transformed_img, 
+                boxes=transformed_boxes, 
+                labels=labels, 
+                max_w=W, 
+                max_h=H
+            )
+            # Update dimensions after crop
+            h_stamp, w_stamp = transformed_img.shape
+            
+            # If crop resulted in empty image/labels (rare but possible), skip
+            if len(labels) == 0:
+                continue
         
         # --- Random Placement with Collision Detection ---
         placed = False
@@ -330,6 +401,7 @@ def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_
                 final_labels.extend(labels)                
                 occupied_rects.append(candidate_rect)
                 placed = True
+                num_placed += 1
                 break
 
         if not placed: 
@@ -337,6 +409,12 @@ def generate_mosaic(stamps, stamp_deck, canvas_size, min_symbols_per_image, max_
             #print("Could not place stamp without collision, skipping and adding to deck again.")
             # add back the stamp to the deck for future use
             stamp_deck.append(stamp_idx)
+            # shuffle deck to avoid same order
+            random.shuffle(stamp_deck)
+        
+        # Check if boxes are equal to labels
+        if len(final_boxes) != len(final_labels):
+            print("Error: Mismatch between boxes and labels count.")
                     
     return canvas, final_boxes, final_labels
 
@@ -385,7 +463,7 @@ def main():
     print(f"Generating {num_synthetic_images} synthetic images...")
 
     for i in tqdm(range(num_synthetic_images)):
-        canvas, boxes, labels = generate_mosaic(
+        canvas, boxes, labels= generate_mosaic(
             stamps=stamps,
             stamp_deck=stamp_deck,
             canvas_size=canvas_size,
@@ -397,6 +475,8 @@ def main():
             class_mapping=class_mapping       
         )
         
+        #print(f"stamp_deck size after image {i}: {len(stamp_deck)}")
+
         filename = f"syn_{i:05d}.png"
         cv2.imwrite(os.path.join(synthetic_image_dir, filename), canvas)
         
