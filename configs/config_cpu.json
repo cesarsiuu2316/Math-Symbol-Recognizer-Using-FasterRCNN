@@ -73,7 +73,7 @@
     },
     "synthetic_data_params":{
         "num_synthetic_images": 10000,
-        "max_symbols_per_image": 4,
+        "max_symbols_per_image": 3,
         "min_symbols_per_image": 1,
         "canvas_size": [
             256,
