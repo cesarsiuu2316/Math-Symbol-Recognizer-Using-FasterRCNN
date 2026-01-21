@@ -74,6 +74,19 @@ def predict_and_draw(model, device, image_path, id_to_name, threshold=0.5):
     # 1. Load Image
     img_bgr = cv2.imread(image_path)
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+    # --- NEW: PREVENT RESIZING TRICK ---
+    # We get the actual dimensions of the loaded image
+    h, w = img_rgb.shape[:2]
+    min_dim = min(h, w)
+    max_dim = max(h, w)
+
+    # We force the model's transformation parameters to match this specific image.
+    # Logic: scale = min_size / min_dim
+    # If min_size == min_dim, then scale == 1.0 (No Resize)
+    model.transform.min_size = (min_dim,) 
+    model.transform.max_size = max_dim 
+    # -----------------------------------
     
     # 2. Preprocess (Normalize and Convert to Tensor)
     img_tensor = torch.from_numpy(img_rgb).permute(2, 0, 1).float() / 255.0
