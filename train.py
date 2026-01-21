@@ -285,7 +285,39 @@ def main():
     )
 
     # 5. Model & Optimizer
-    model = get_model(config)
+    # Load Model configs
+    class_mapping_path = config['paths']['class_mapping_path']
+    with open(class_mapping_path, 'r') as f:
+        class_mapping = json.load(f)
+    num_classes = len(class_mapping) + 1 # background class is 0
+    anchor_sizes = config['model_params']['anchor_params']['sizes'] # Custom anchor sizes
+    aspect_ratios = config['model_params']['anchor_params']['aspect_ratios'] # Custom aspect ratios
+    weights = config['model_params']['weights'] # Usually None if we want to start fresh or specific weights
+    weights_backbone = config['model_params']['weights_backbone'] # ImageNet weights for backbone
+    trainable_backbone_layers = config['model_params']['trainable_backbone_layers'] # Unfreeze all layers (5) for domain adaptation
+    num_fpn_levels = config['model_params']['num_fpn_levels'] # Number of FPN levels
+    skip_resize = config['model_params']['skip_resize'] # Whether to skip resizing in the model
+    min_size = config['transform_params']['target_min_size'] # Min size for resizing (not used, but still passed)
+    max_size = config['model_params']['target_max_size'] # Max size for resizing (not used, but still passed)
+    score_thresh = config['model_params']['roi_heads']['box_score_thresh'] # Score threshold for ROI heads
+    nms_thresh = config['model_params']['roi_heads']['box_nms_thresh'] # NMS threshold for ROI heads
+    detections_per_img = config['model_params']['roi_heads']['box_detections_per_img'] # Max detections per image
+
+    model = get_model(
+        num_classes=num_classes,
+        anchor_sizes=anchor_sizes, 
+        aspect_ratios=aspect_ratios, 
+        weights=weights, 
+        weights_backbone=weights_backbone, 
+        trainable_backbone_layers=trainable_backbone_layers, 
+        num_fpn_levels=num_fpn_levels,
+        skip_resize=skip_resize, 
+        min_size=min_size, 
+        max_size=max_size, 
+        score_thresh=score_thresh, 
+        nms_thresh=nms_thresh, 
+        detections_per_img=detections_per_img
+    )
     model.to(device)
     
     learning_rate = config['training_params']['learning_rate']
