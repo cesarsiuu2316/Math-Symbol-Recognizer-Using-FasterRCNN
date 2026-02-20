@@ -18,6 +18,8 @@ output/models/
 
 # Dont save results of inference
 results/
+commands.txt
+whiteboard_binarized_images/
 
 # Colab and kaggle stuff
 configs/config_cuda_colab.json
