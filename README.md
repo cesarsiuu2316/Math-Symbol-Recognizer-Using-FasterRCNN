@@ -18,7 +18,7 @@ This Faster R-CNN model serves as the critical symbol-detection bridge in a comp
 
 1. **Content Extraction & Binarization**: 
    Handwritten content is extracted and binarized from raw whiteboard images using a retrained **FCN-LectureNet** model. 
-   > *Reference: Davila, K., Xu, F., Setlur, S., & Govindaraju, V. (2021). Fcn-lecturenet: extractive summarization of whiteboard and chalkboard lecture videos. IEEE Access, 9, 104469-104484.(https://ieeexplore.ieee.org/document/9496159)*
+   > *Reference: Davila, K., Xu, F., Setlur, S., & Govindaraju, V. (2021). Fcn-lecturenet: extractive summarization of whiteboard and chalkboard lecture videos. IEEE Access, 9, 104469-104484.(https://ieeexplore.ieee.org/ielx7/6287639/9312710/09494351.pdf?tp=&arnumber=9494351&isnumber=9312710&ref=aHR0cHM6Ly9zY2hvbGFyLmdvb2dsZS5jb20v)*
 
 2. **Symbol Detection (This Repository)**: 
    The extracted math regions are passed through this custom **Faster R-CNN model** to detect and classify individual mathematical symbols, replacing traditional Connected Components + OCR pipelines.
