@@ -16,8 +16,12 @@ output/checkpoints/
 output/logs/
 output/models/
 
-# Dont save results of inference
+# Dont save inputs and results of inference
+whiteboard_binarized_images/
 results/
+
+# custom list of commands
+commands.txt
 
 # Colab and kaggle stuff
 configs/config_cuda_colab.json

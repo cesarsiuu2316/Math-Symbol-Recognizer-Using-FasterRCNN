@@ -76,7 +76,7 @@
         "batch_size": 2,
         "num_workers": 1,
         "pin_memory": false,
-        "detection_threshold": 0.5,
+        "detection_threshold": 0.6,
         "debug": true
     },
     "transform_params": {
