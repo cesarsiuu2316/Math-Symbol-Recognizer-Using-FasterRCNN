@@ -71,6 +71,14 @@
         "print_freq": 15,
         "debug": true
     },
+    "inference_params":{
+        "device": "cpu",
+        "batch_size": 2,
+        "num_workers": 1,
+        "pin_memory": false,
+        "detection_threshold": 0.6,
+        "debug": true
+    },
     "synthetic_data_params":{
         "num_synthetic_images": 10000,
         "max_symbols_per_image": 3,
